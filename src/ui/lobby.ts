@@ -6,11 +6,17 @@ import { WEAPONS, getWeapon } from '../game/weapons';
 import { weaponIcon } from '../render/icons';
 
 /** Everything the lobby lets players choose before a match. */
+export interface Seat {
+  name: string;
+  /** 0 = human, 1..10 = CPU level. */
+  cpu: number;
+}
+
 export interface MatchSettings {
-  mode: 'hotseat' | 'cpu';
-  name0: string;
-  name1: string;
-  cpuLevel: number;
+  /** How many players take part (2 or 3). */
+  count: number;
+  /** Always three seats; only the first `count` play. */
+  seats: Seat[];
   weapons: number;
   selection: 'draft' | 'random';
   terrain: 'random' | TerrainStyle;
@@ -22,7 +28,9 @@ export interface MatchSettings {
 }
 
 export const DEFAULT_SETTINGS: MatchSettings = {
-  mode: 'hotseat', name0: 'Player 1', name1: 'Player 2', cpuLevel: 5, weapons: 10, selection: 'draft',
+  count: 2,
+  seats: [{ name: 'Player 1', cpu: 0 }, { name: 'Player 2', cpu: 0 }, { name: 'Player 3', cpu: 0 }],
+  weapons: 10, selection: 'draft',
   terrain: 'random', wind: 'normal', theme: '', rounds: 1, disabled: [],
 };
 
@@ -50,19 +58,54 @@ const $ = <T extends HTMLElement = HTMLElement>(sel: string) => document.querySe
 /** Wires the lobby form to a settings object. Calls onChange whenever something changes. */
 export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSettings) => void, click: () => void) {
   const s: MatchSettings = { ...DEFAULT_SETTINGS, ...initial };
+  // Settings saved by older versions had name0/name1/mode/cpuLevel instead of seats.
+  const old = initial as Partial<{ name0: string; name1: string; mode: string; cpuLevel: number }>;
+  if (!initial.seats) {
+    s.seats = DEFAULT_SETTINGS.seats.map((x) => ({ ...x }));
+    if (old.name0) s.seats[0].name = old.name0;
+    if (old.name1) s.seats[1].name = old.name1;
+    if (old.mode === 'cpu') s.seats[1].cpu = old.cpuLevel ?? 5;
+  }
+  s.seats = [0, 1, 2].map((i) => ({ ...DEFAULT_SETTINGS.seats[i], ...(s.seats[i] ?? {}) }));
+  s.count = s.count === 3 ? 3 : 2;
+  const seatsEl = $('#seats');
+  seatsEl.innerHTML = '';
+  s.seats.forEach((seat, i) => {
+    const row = document.createElement('div');
+    row.className = 'seat';
+    row.dataset.seat = String(i);
+    const opts = ['<option value="0">Human</option>', ...Array.from({ length: 10 }, (_, k) => `<option value="${k + 1}">CPU ${k + 1}</option>`)].join('');
+    row.innerHTML = `<span class="dot"></span><input maxlength="12" aria-label="Player ${i + 1} name" /><select aria-label="Player ${i + 1} type">${opts}</select>`;
+    const input = row.querySelector('input')!;
+    const sel = row.querySelector('select')!;
+    input.addEventListener('change', () => {
+      seat.name = input.value.trim() || `Player ${i + 1}`;
+      changed();
+    });
+    sel.addEventListener('change', () => {
+      const was = seat.cpu;
+      seat.cpu = Number(sel.value);
+      // Rename default names so the plates read "CPU 7" rather than "Player 2".
+      if (seat.cpu && (seat.name === `Player ${i + 1}` || /^CPU \d+$/.test(seat.name))) seat.name = `CPU ${seat.cpu}`;
+      if (!seat.cpu && was && /^CPU \d+$/.test(seat.name)) seat.name = `Player ${i + 1}`;
+      click();
+      changed();
+    });
+    seatsEl.appendChild(row);
+  });
+  const modeOf = () => (s.count === 3 ? 'three' : s.seats[1].cpu ? 'cpu' : 'hotseat');
   // Forget ids of weapons that no longer exist.
   s.disabled = (s.disabled ?? []).filter((id) => WEAPONS.some((w) => w.id === id));
   const themeSel = $<HTMLSelectElement>('#theme');
   for (const t of THEMES) themeSel.add(new Option(t.name, t.id));
 
   const sync = () => {
-    document.querySelectorAll<HTMLButtonElement>('.mode[data-mode]').forEach((b) => b.classList.toggle('active', b.dataset.mode === s.mode));
-    $('#name1-wrap').classList.toggle('hidden', s.mode === 'cpu');
-    $('#cpu-wrap').classList.toggle('hidden', s.mode !== 'cpu');
-    $<HTMLInputElement>('#cpu-level').value = String(s.cpuLevel);
-    $('#cpu-level-val').textContent = String(s.cpuLevel);
-    $<HTMLInputElement>('#name0').value = s.name0;
-    $<HTMLInputElement>('#name1').value = s.name1;
+    document.querySelectorAll<HTMLButtonElement>('.mode[data-mode]').forEach((b) => b.classList.toggle('active', b.dataset.mode === modeOf()));
+    seatsEl.querySelectorAll<HTMLElement>('.seat').forEach((row, i) => {
+      row.classList.toggle('hidden', i >= s.count);
+      row.querySelector('input')!.value = s.seats[i].name;
+      row.querySelector('select')!.value = String(s.seats[i].cpu);
+    });
     themeSel.value = s.theme;
     document.querySelectorAll<HTMLElement>('.seg[data-key]').forEach((seg) => {
       const v = String(s[seg.dataset.key as keyof MatchSettings]);
@@ -79,7 +122,21 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
 
   document.querySelectorAll<HTMLButtonElement>('.mode[data-mode]').forEach((b) =>
     b.addEventListener('click', () => {
-      s.mode = b.dataset.mode as MatchSettings['mode'];
+      // Presets: two humans, human vs CPU, or three players (keeping whoever is already set up).
+      const m = b.dataset.mode;
+      const setCpu = (i: number, lvl: number) => {
+        const seat = s.seats[i];
+        const wasDefault = seat.name === `Player ${i + 1}` || /^CPU \d+$/.test(seat.name);
+        seat.cpu = lvl;
+        if (wasDefault) seat.name = lvl ? `CPU ${lvl}` : `Player ${i + 1}`;
+      };
+      if (m === 'hotseat') {
+        s.count = 2;
+        setCpu(1, 0);
+      } else if (m === 'cpu') {
+        s.count = 2;
+        setCpu(1, s.seats[1].cpu || 5);
+      } else s.count = 3;
       click();
       changed();
     }),
@@ -95,12 +152,6 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
       }),
     ),
   );
-  $('#cpu-level').addEventListener('input', () => {
-    s.cpuLevel = Number($<HTMLInputElement>('#cpu-level').value);
-    changed();
-  });
-  $('#name0').addEventListener('change', () => ((s.name0 = $<HTMLInputElement>('#name0').value.trim() || 'Player 1'), changed()));
-  $('#name1').addEventListener('change', () => ((s.name1 = $<HTMLInputElement>('#name1').value.trim() || 'Player 2'), changed()));
   themeSel.addEventListener('change', () => ((s.theme = themeSel.value), changed()));
 
   // ── Weapons in play ──
@@ -158,16 +209,16 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
   });
   sync();
   return {
-    get: (): MatchSettings => ({
-      ...s,
-      name0: $<HTMLInputElement>('#name0').value.trim() || 'Player 1',
-      name1: $<HTMLInputElement>('#name1').value.trim() || 'Player 2',
-    }),
+    get: (): MatchSettings => {
+      // Pick up a name still being typed.
+      seatsEl.querySelectorAll<HTMLInputElement>('.seat input').forEach((inp, i) => (s.seats[i].name = inp.value.trim() || `Player ${i + 1}`));
+      return { ...s, seats: s.seats.map((x) => ({ ...x })) };
+    },
   };
 }
 
-export function playersOf(s: MatchSettings): [PlayerSetup, PlayerSetup] {
-  return [{ name: s.name0 }, s.mode === 'cpu' ? { name: `CPU ${s.cpuLevel}`, cpuLevel: s.cpuLevel } : { name: s.name1 }];
+export function playersOf(s: MatchSettings): PlayerSetup[] {
+  return s.seats.slice(0, s.count).map((seat) => (seat.cpu ? { name: seat.name, cpuLevel: seat.cpu } : { name: seat.name }));
 }
 
 export function gameOptions(s: MatchSettings, seed: number): GameOptions {
@@ -187,21 +238,22 @@ export function gameOptions(s: MatchSettings, seed: number): GameOptions {
  * larger than the arsenal allows, each weapon comes in enough copies to go round.
  */
 export function runDraft(opts: {
-  players: [PlayerSetup, PlayerSetup];
+  players: PlayerSetup[];
   perPlayer: number;
   /** Weapon ids that may be picked. Defaults to the whole arsenal. */
   pool?: string[];
   first: number;
   rng: Rng;
   onPick: () => void;
-  onDone: (hands: [string[], string[]]) => void;
+  onDone: (hands: string[][]) => void;
 }) {
   const { players, perPlayer, rng } = opts;
   const allowed = new Set(opts.pool ?? WEAPONS.map((w) => w.id));
   const ARSENAL = WEAPONS.filter((w) => allowed.has(w.id));
-  const copies = Math.max(1, Math.ceil((perPlayer * 2) / ARSENAL.length));
+  const n = players.length;
+  const copies = Math.max(1, Math.ceil((perPlayer * n) / ARSENAL.length));
   const left = new Map(ARSENAL.map((w) => [w.id, copies]));
-  const hands: [string[], string[]] = [[], []];
+  const hands: string[][] = players.map(() => []);
   let picker = opts.first;
   let cpuTimer = 0;
   let finished = false;
@@ -215,15 +267,21 @@ export function runDraft(opts: {
     left.set(id, left.get(id)! - 1);
     hands[picker].push(id);
     opts.onPick();
-    const other = 1 - picker;
-    if (hands[other].length < perPlayer) picker = other;
+    // Next player round the table who still has room in their hand.
+    for (let k = 1; k <= n; k++) {
+      const next = (picker + k) % n;
+      if (hands[next].length < perPlayer) {
+        picker = next;
+        break;
+      }
+    }
     render();
-    if (hands[0].length >= perPlayer && hands[1].length >= perPlayer) {
+    if (hands.every((h) => h.length >= perPlayer)) {
       finished = true;
       $('#draft-turn').textContent = 'Arsenals ready. Deploying…';
       setTimeout(() => {
         overlay.classList.add('hidden');
-        opts.onDone([hands[0].slice(), hands[1].slice()]);
+        opts.onDone(hands.map((h) => h.slice()));
       }, 700);
       return;
     }
@@ -254,8 +312,9 @@ export function runDraft(opts: {
     const p = players[picker];
     const turn = $('#draft-turn');
     turn.textContent = `${p.name} picks · ${hands[picker].length + 1} of ${perPlayer}`;
-    turn.style.color = picker === 0 ? 'var(--p0)' : 'var(--p1)';
-    for (const i of [0, 1]) {
+    turn.style.color = `var(--p${picker})`;
+    $('#hand2').classList.toggle('hidden', n < 3);
+    for (let i = 0; i < n; i++) {
       const el = $(`#hand${i}`);
       el.classList.toggle('picking', i === picker && !finished);
       el.querySelector('h3')!.textContent = players[i].name;

@@ -37,12 +37,13 @@ export interface PlayerSetup {
 }
 
 export interface GameOptions {
-  players: [PlayerSetup, PlayerSetup];
+  /** Two or three players. */
+  players: PlayerSetup[];
   weaponsPerPlayer: number;
   seed: number;
   themeId?: string;
   /** Pre-picked hands from a draft. Omit to deal at random. */
-  hands?: [string[], string[]];
+  hands?: string[][];
   /** Strongest wind (0 = no wind). Defaults to MAX_WIND. */
   maxWind?: number;
   /** Hill shape. Omit for random. */
@@ -116,7 +117,7 @@ export interface Flame {
 
 export type Phase = 'aim' | 'moving' | 'flight' | 'gameover';
 
-export const PLAYER_COLORS = ['#38c6ff', '#ff7a3d'];
+export const PLAYER_COLORS = ['#38c6ff', '#ff7a3d', '#d77bff'];
 
 export class Game {
   readonly rng: Rng;
@@ -139,10 +140,11 @@ export class Game {
   constructor(readonly opts: GameOptions, public fx: Fx = NullFx) {
     this.rng = new Rng(opts.seed);
     this.theme = THEMES.find((t) => t.id === opts.themeId) ?? this.rng.pick(THEMES);
-    const x1 = Math.round(this.rng.range(0.07, 0.22) * WORLD_W);
-    const x2 = Math.round(this.rng.range(0.78, 0.93) * WORLD_W);
-    this.terrain = Terrain.generate(WORLD_W, WORLD_H, this.rng, this.theme, [x1, x2], opts.terrain);
-    this.tanks = [x1, x2].map((x) => this.makeTank(x));
+    // Player 1 starts on the left, player 2 on the right, a third player in the middle.
+    const xs = [Math.round(this.rng.range(0.07, 0.22) * WORLD_W), Math.round(this.rng.range(0.78, 0.93) * WORLD_W)];
+    if (opts.players.length > 2) xs.push(Math.round(this.rng.range(0.44, 0.56) * WORLD_W));
+    this.terrain = Terrain.generate(WORLD_W, WORLD_H, this.rng, this.theme, xs, opts.terrain);
+    this.tanks = xs.map((x) => this.makeTank(x));
     this.players = opts.players.map((p, i) => ({
       name: p.name,
       color: PLAYER_COLORS[i],
@@ -151,13 +153,13 @@ export class Game {
       weapons: [],
       selected: 0,
       moves: MOVES_PER_GAME,
-      angle: i === 0 ? 50 : 130,
+      angle: i === 1 ? 130 : 50,
       power: 60,
     }));
     if (opts.hands) opts.hands.forEach((h, i) => (this.players[i].weapons = [...h]));
     else this.dealWeapons(opts.weaponsPerPlayer);
     this.wind = this.rollWind();
-    this.current = this.rng.int(0, 1);
+    this.current = this.rng.int(0, this.players.length - 1);
   }
 
   private makeTank(x: number): Tank {
@@ -374,15 +376,30 @@ export class Game {
       return;
     }
     this.turn++;
-    this.current = 1 - this.current;
-    if (remaining[this.current] === 0) this.current = 1 - this.current;
+    // Rotate to the next player who still has weapons.
+    const n = this.players.length;
+    for (let k = 1; k <= n; k++) {
+      const next = (this.current + k) % n;
+      if (remaining[next] > 0) {
+        this.current = next;
+        break;
+      }
+    }
     this.wind = this.rollWind();
     this.phase = 'aim';
   }
 
+  /** Index of the top scorer, or -1 when the top score is shared. */
   get winner(): number {
-    const [a, b] = this.players.map((p) => Math.round(p.score));
-    return a === b ? -1 : a > b ? 0 : 1;
+    const sc = this.players.map((p) => Math.round(p.score));
+    const top = Math.max(...sc);
+    return sc.filter((v) => v === top).length > 1 ? -1 : sc.indexOf(top);
+  }
+
+  /** Who scores when `tank` takes damage from `owner`: the shooter, or, for self-damage, everyone else. */
+  scorersFor(tank: number, owner: number): number[] {
+    if (tank !== owner) return [owner];
+    return this.players.map((_, i) => i).filter((i) => i !== tank);
   }
 
   private stepProjectile(p: Projectile) {
@@ -772,10 +789,10 @@ export class Game {
   }
 
   applyDamage(tank: number, amount: number, owner: number, x: number, y: number, popup = true) {
-    const scorer = tank === owner ? 1 - tank : owner;
-    this.players[scorer].score += amount;
+    const scorers = this.scorersFor(tank, owner);
+    for (const s of scorers) this.players[s].score += amount / scorers.length;
     this.tanks[tank].hitFlash = 1;
-    if (popup) this.fx.damage(x, y, amount, this.players[scorer].color);
+    if (popup) this.fx.damage(x, y, amount, scorers.length === 1 ? this.players[scorers[0]].color : '#e6e6e6');
   }
 
   private stepFlames(dt: number) {
@@ -813,8 +830,8 @@ export class Game {
         this.applyDamage(i, amt, b.owner, 0, 0, false);
         if (t.burnTimer > 0.45 && t.burnAcc >= 1) {
           const c = tankCenter(t);
-          const scorer = i === b.owner ? 1 - i : b.owner;
-          this.fx.damage(c.x, c.y - 20, Math.round(t.burnAcc), this.players[scorer].color);
+          const sc = this.scorersFor(i, b.owner);
+          this.fx.damage(c.x, c.y - 20, Math.round(t.burnAcc), sc.length === 1 ? this.players[sc[0]].color : '#e6e6e6');
           t.burnAcc = 0;
           t.burnTimer = 0;
         }

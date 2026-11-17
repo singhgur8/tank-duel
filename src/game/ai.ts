@@ -60,6 +60,25 @@ export interface Plan {
   miss: number;
 }
 
+/**
+ * Who the CPU shoots at: with two players, the other one. With three, the opponent in the lead
+ * (closest one breaks ties), so the CPU keeps the race tight.
+ */
+export function pickTarget(game: Game, owner: number): number {
+  const me = game.tanks[owner];
+  let best = -1,
+    bs = -Infinity;
+  game.players.forEach((p, i) => {
+    if (i === owner) return;
+    const s = Math.round(p.score) * 1000 - Math.abs(game.tanks[i].x - me.x);
+    if (s > bs) {
+      bs = s;
+      best = i;
+    }
+  });
+  return best;
+}
+
 function missOf(game: Game, owner: number, target: number, r: ShotResult) {
   if (r.tank === target) return 0;
   if (r.tank === owner) return 9999;
@@ -69,7 +88,7 @@ function missOf(game: Game, owner: number, target: number, r: ShotResult) {
 
 /** Best (angle, power) for a projectile weapon, searched with the real physics. */
 export function solveShot(game: Game, owner: number, def: ProjectileDef) {
-  const target = 1 - owner;
+  const target = pickTarget(game, owner);
   const me = game.tanks[owner];
   const c = tankCenter(game.tanks[target]);
   const dir = c.x >= me.x ? 1 : -1;
@@ -142,7 +161,7 @@ export function planTurn(game: Game, owner: number, level: number, rng: Rng): Pl
   let angle: number, power: number, miss: number;
   if (w.beam) {
     const p = game.pivot(owner);
-    const c = tankCenter(game.tanks[1 - owner]);
+    const c = tankCenter(game.tanks[pickTarget(game, owner)]);
     angle = Math.atan2(-(c.y - p.y), c.x - p.x) / DEG; // -180..180
     if (angle < -90) angle += 360; // keep it continuous for targets down-left (e.g. 200°)
     power = game.players[owner].power;

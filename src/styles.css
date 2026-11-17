@@ -7,6 +7,7 @@
   --muted: #9aa3b8;
   --p0: #38c6ff;
   --p1: #ff7a3d;
+  --p2: #d77bff;
   --accent: #ffcc4d;
   --fire: #ff4d2e;
   --steel-hi: #2a3140;
@@ -39,6 +40,9 @@ button { cursor: pointer; }
 #p1card .pname { color: var(--p1); }
 #p0card.active { box-shadow: 0 0 0 2px var(--p0), 0 0 24px rgba(56,198,255,.45); }
 #p1card.active { box-shadow: 0 0 0 2px var(--p1), 0 0 24px rgba(255,122,61,.45); }
+#p2card .pname { color: var(--p2); }
+#p2card.active { box-shadow: 0 0 0 2px var(--p2), 0 0 24px rgba(215,123,255,.45); }
+.plates { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
 .pscore.bump { animation: bump .45s ease-out; }
 @keyframes bump { 0% { transform: scale(1); } 30% { transform: scale(1.15); } 100% { transform: scale(1); } }
 
@@ -224,6 +228,9 @@ h2 { margin: 0 0 6px; }
 #hand1 h3 { color: var(--p1); }
 #hand0.picking { border-color: var(--p0); box-shadow: 0 0 20px rgba(56,198,255,.25); }
 #hand1.picking { border-color: var(--p1); box-shadow: 0 0 20px rgba(255,122,61,.25); }
+#hand2 h3 { color: var(--p2); }
+#hand2.picking { border-color: var(--p2); box-shadow: 0 0 20px rgba(215,123,255,.25); }
+.hands-right { display: flex; flex-direction: column; gap: 12px; }
 .hand-list { display: flex; flex-direction: column; gap: 4px; }
 .hand-item { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; animation: rise .25s ease-out; }
 .hand-item img { width: 24px; height: 24px; }
@@ -286,4 +293,20 @@ h2 { margin: 0 0 6px; }
 @media (max-height: 520px) and (orientation: landscape) {
   #arsenal-grid { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
   #arsenal-grid small, .panel.arsenal .hint { display: none; }
+}
+
+/* ── seats (who plays) ── */
+#seats { display: flex; flex-direction: column; gap: 8px; }
+.seat { display: grid; grid-template-columns: 10px 1fr auto; align-items: center; gap: 8px; }
+.seat .dot { width: 10px; height: 10px; border-radius: 50%; box-shadow: 0 0 8px currentColor; background: currentColor; }
+.seat[data-seat="0"] .dot { color: var(--p0); }
+.seat[data-seat="1"] .dot { color: var(--p1); }
+.seat[data-seat="2"] .dot { color: var(--p2); }
+.seat input { min-width: 0; width: 100%; }
+.seat select { width: 104px; }
+@media (orientation: portrait) and (max-width: 700px) {
+  .plates { flex: 1 1 0; min-width: 0; }
+  .plates .plate { flex: 1 1 0; }
+  body.three #wind-val { min-width: 38px; }
+  body.three .plate .pscore { font-size: 16px; padding: 2px 6px; }
 }

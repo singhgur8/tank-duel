@@ -63,8 +63,8 @@ syncMenu();
 interface Match {
   settings: MatchSettings;
   round: number;
-  wins: [number, number];
-  totals: [number, number];
+  wins: number[];
+  totals: number[];
   firstPicker: number;
 }
 let match: Match | null = null;
@@ -74,7 +74,8 @@ $('#start-btn').addEventListener('click', () => {
   audio.unlock();
   const settings = lobby.get();
   saveSettings({ ...loadSettings(), lobby: settings });
-  match = { settings, round: 1, wins: [0, 0], totals: [0, 0], firstPicker: Math.random() < 0.5 ? 0 : 1 };
+  const n = settings.count;
+  match = { settings, round: 1, wins: Array(n).fill(0), totals: Array(n).fill(0), firstPicker: Math.floor(Math.random() * n) };
   startRound();
 });
 
@@ -92,7 +93,7 @@ function startRound() {
       players: opts.players,
       perPlayer: m.settings.weapons,
       pool: opts.pool,
-      first: (m.firstPicker + m.round - 1) % 2,
+      first: (m.firstPicker + m.round - 1) % opts.players.length,
       rng: new Rng(seed ^ 0xd4af7),
       onPick: () => audio.click(),
       onDone: (hands) => {
@@ -115,6 +116,8 @@ function startGame(opts: GameOptions) {
   gameOverShown = false;
   paused = false;
   for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft', '#arsenal']) $(id).classList.add('hidden');
+  $('#p2card').classList.toggle('hidden', opts.players.length < 3);
+  document.body.classList.toggle('three', opts.players.length > 2);
   hudCache.clear();
 }
 
@@ -293,7 +296,7 @@ $('#quit-btn').addEventListener('click', toMenu);
 $('#menu-btn').addEventListener('click', toMenu);
 $('#rematch-btn').addEventListener('click', () => {
   if (!match) return;
-  match = { ...match, round: 1, wins: [0, 0], totals: [0, 0] };
+  match = { ...match, round: 1, wins: match.wins.map(() => 0), totals: match.totals.map(() => 0) };
   startRound();
 });
 $('#next-btn').addEventListener('click', () => {
@@ -398,14 +401,16 @@ function showRoundResult(g: Game) {
   let color = win < 0 ? '#fff' : g.players[win].color;
   if (over && m && rounds > 1) {
     // match winner: most round wins, then most total points
-    const mw = m.wins[0] !== m.wins[1] ? (m.wins[0] > m.wins[1] ? 0 : 1) : m.totals[0] !== m.totals[1] ? (m.totals[0] > m.totals[1] ? 0 : 1) : -1;
+    const key = m.wins.map((w, i) => w * 1e6 + m.totals[i]);
+    const top = Math.max(...key);
+    const mw = key.filter((k) => k === top).length > 1 ? -1 : key.indexOf(top);
     title = mw < 0 ? 'The match is a draw!' : `${g.players[mw].name} wins the match!`;
     color = mw < 0 ? '#fff' : g.players[mw].color;
   }
   $('#go-title').textContent = title;
   $('#go-title').style.color = color;
   $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score)}</b></div>`).join('');
-  $('#go-match').textContent = m && rounds > 1 ? `Rounds won: ${g.players[0].name} ${m.wins[0]} · ${g.players[1].name} ${m.wins[1]}` : '';
+  $('#go-match').textContent = m && rounds > 1 ? `Rounds won: ${g.players.map((pl, i) => `${pl.name} ${m.wins[i]}`).join(' · ')}` : '';
   $('#next-btn').classList.toggle('hidden', over);
   $('#rematch-btn').classList.toggle('hidden', !over);
   $('#gameover').classList.remove('hidden');
