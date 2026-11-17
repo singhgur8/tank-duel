@@ -33,7 +33,7 @@
       <div id="controls">
         <div class="ctrl weapon">
           <button class="step" data-act="wprev" aria-label="Previous weapon">‹</button>
-          <button id="weapon-btn"><span id="weapon-dot"></span><span id="weapon-name">Shell</span><span id="weapon-count"></span></button>
+          <button id="weapon-btn"><img id="weapon-icon" alt="" /><span id="weapon-name">Shell</span><span id="weapon-count"></span></button>
           <button class="step" data-act="wnext" aria-label="Next weapon">›</button>
         </div>
         <div class="ctrl">
@@ -64,9 +64,9 @@
         <button id="fire-btn">FIRE</button>
       </div>
 
-      <!-- Main menu -->
+      <!-- Lobby -->
       <div id="menu" class="overlay">
-        <div class="panel">
+        <div class="panel lobby">
           <h1>TANK<span>DUEL</span></h1>
           <p class="tag">Turn-based artillery. Bend shells around the wind, carve the hills, outscore your rival.</p>
           <div class="modes">
@@ -74,23 +74,58 @@
             <button class="mode" data-mode="cpu"><b>vs CPU</b><small>Difficulty 1–10</small></button>
             <button class="mode disabled" disabled title="Coming later"><b>Online</b><small>Coming soon</small></button>
           </div>
-          <div class="field-grid">
-            <label>Player 1 <input id="name0" maxlength="12" value="Player 1" /></label>
-            <label id="name1-wrap">Player 2 <input id="name1" maxlength="12" value="Player 2" /></label>
-            <label id="cpu-wrap" class="hidden">CPU level <span id="cpu-level-val">5</span>
-              <input type="range" id="cpu-level" min="1" max="10" step="1" value="5" />
-            </label>
-            <label>Weapons each
-              <select id="wcount"><option>5</option><option selected>10</option><option>15</option><option>20</option></select>
-            </label>
-            <label>Battlefield
-              <select id="theme"><option value="">Random</option></select>
-            </label>
+          <div class="lobby-grid">
+            <section>
+              <h3>Players</h3>
+              <label>Player 1 <input id="name0" maxlength="12" value="Player 1" /></label>
+              <label id="name1-wrap">Player 2 <input id="name1" maxlength="12" value="Player 2" /></label>
+              <label id="cpu-wrap" class="hidden">CPU level <span id="cpu-level-val">5</span>
+                <input type="range" id="cpu-level" min="1" max="10" step="1" value="5" />
+              </label>
+            </section>
+            <section>
+              <h3>Arsenal</h3>
+              <div class="opt"><span>Weapons each</span>
+                <div class="seg" data-key="weapons"><button data-v="5">5</button><button data-v="10">10</button><button data-v="15">15</button><button data-v="20">20</button></div></div>
+              <div class="opt"><span>Weapon choice</span>
+                <div class="seg" data-key="selection"><button data-v="draft">Take turns picking</button><button data-v="random">Random</button></div></div>
+            </section>
+            <section>
+              <h3>Battlefield</h3>
+              <div class="opt"><span>Terrain</span>
+                <div class="seg" data-key="terrain"><button data-v="random">Random</button><button data-v="rolling">Rolling</button><button data-v="mountains">Peaks</button><button data-v="flat">Flat</button><button data-v="valley">Valley</button></div></div>
+              <div class="opt"><span>Wind</span>
+                <div class="seg" data-key="wind"><button data-v="off">Off</button><button data-v="light">Light</button><button data-v="normal">Normal</button><button data-v="strong">Strong</button></div></div>
+              <label>Scenery <select id="theme"><option value="">Random</option></select></label>
+            </section>
+            <section>
+              <h3>Match</h3>
+              <div class="opt"><span>Rounds</span>
+                <div class="seg" data-key="rounds"><button data-v="1">1</button><button data-v="3">Best of 3</button><button data-v="5">Best of 5</button></div></div>
+            </section>
           </div>
           <button id="start-btn" class="primary">Start battle</button>
           <div class="menu-foot">
             <button id="install-btn" class="ghost hidden">Install app</button>
-            <span class="keys">Keys: ←/→ angle · ↑/↓ power (hold Shift for fine) · A/D move · Q/E weapon · Space fire · Esc menu · Drag on the field to aim</span>
+            <span class="keys">Keys: ←/→ angle · ↑/↓ power (hold Shift for fine) · A/D move · Q/E weapon · W weapon list · Space fire · Esc menu · Drag on the field to aim</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weapon draft -->
+      <div id="draft" class="overlay hidden">
+        <div class="panel wide draft">
+          <div class="draft-head">
+            <div><h2>Weapon draft</h2><div id="draft-turn"></div></div>
+            <div class="draft-actions">
+              <button class="ghost" id="draft-random">Random pick</button>
+              <button class="ghost" id="draft-auto">Fill the rest at random</button>
+            </div>
+          </div>
+          <div class="draft-body">
+            <div class="hand" id="hand0"><h3></h3><div class="hand-list"></div></div>
+            <div id="draft-pool"></div>
+            <div class="hand" id="hand1"><h3></h3><div class="hand-list"></div></div>
           </div>
         </div>
       </div>
@@ -115,9 +150,12 @@
       <!-- Game over -->
       <div id="gameover" class="overlay hidden">
         <div class="panel small">
+          <div id="go-round"></div>
           <h2 id="go-title">Victory</h2>
           <div id="go-scores"></div>
-          <button class="primary" id="rematch-btn">Rematch</button>
+          <div id="go-match"></div>
+          <button class="primary" id="next-btn">Next round</button>
+          <button class="primary" id="rematch-btn">New match</button>
           <button class="ghost" id="menu-btn">Main menu</button>
         </div>
       </div>

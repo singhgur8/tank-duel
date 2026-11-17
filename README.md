@@ -6,8 +6,9 @@ sound are made for this project.
 
 - **2 players on one device** (hot-seat), or **vs CPU** with difficulty 1 to 10 (level 10 never misses when a
   trajectory exists).
-- **27 weapons**, each with its own impact behaviour: shells, spreads, splitters, cluster bombs, hail, rollers,
+- **27 weapons**, each with its own icon and impact behaviour: shells, spreads, splitters, cluster bombs, hail, rollers,
   bouncers, seekers, tunnelers, bunker busters, a laser, napalm, and dirt/terrain tools.
+- **Game lobby**: take turns picking weapons (draft) or deal them at random, 5–20 weapons each, single games or best of 3/5, wind strength, terrain shape (rolling, peaks, flat, valley), scenery and CPU level.
 - **Destructible terrain** with falling dirt, tank movement (4 moves per game), wind that changes every turn,
   and score-based play: damage you deal is your score, and hurting yourself scores for your opponent.
 - **Premium feel**: real projectile physics on a fixed 120 Hz step, glowing trails, layered explosions

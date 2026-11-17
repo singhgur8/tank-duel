@@ -1,16 +1,15 @@
-import { BARREL_LEN, PIVOT_HEIGHT, WORLD_H, WORLD_W } from '../config';
+import { BARREL_LEN, PIVOT_HEIGHT, TANK_SCALE, WORLD_H, WORLD_W } from '../config';
 import { DEG } from '../core/rng';
 import type { Game, Tank } from '../game/game';
 import type { Effects } from './effects';
 
-/** Draws the world: sky, parallax hills, clouds, terrain, tanks, projectiles and the effects layers. */
+/** Draws the world: sky, terrain, tanks, projectiles and the effects layers. */
 export class Renderer {
   private bg: HTMLCanvasElement;
   private terrainCanvas: HTMLCanvasElement;
   private terrainCtx: CanvasRenderingContext2D;
   private img: ImageData;
   private img32: Uint32Array;
-  private clouds: { x: number; y: number; s: number; v: number }[] = [];
   private edge = 0;
   scale = 1;
   ox = 0;
@@ -30,7 +29,6 @@ export class Renderer {
     const e = game.theme.edge;
     this.edge = e[0] | (e[1] << 8) | (e[2] << 16);
     this.buildBackground();
-    for (let i = 0; i < 7; i++) this.clouds.push({ x: Math.random() * WORLD_W, y: 40 + Math.random() * 260, s: 0.6 + Math.random() * 1.2, v: 0.6 + Math.random() * 0.8 });
     this.resize();
   }
 
@@ -51,6 +49,7 @@ export class Renderer {
     return { x: (sx - this.ox) / this.scale, y: (sy - this.oy) / this.scale };
   }
 
+  /** Clean vertical gradient sky (plus stars on night themes). */
   private buildBackground() {
     const th = this.game.theme;
     const c = this.bg;
@@ -58,55 +57,20 @@ export class Renderer {
     c.height = WORLD_H;
     const g = c.getContext('2d')!;
     const grd = g.createLinearGradient(0, 0, 0, WORLD_H);
-    th.sky.forEach((col, i) => grd.addColorStop(i / (th.sky.length - 1), col));
+    th.sky.forEach((col, i) => grd.addColorStop((i / (th.sky.length - 1)) * 0.92, col));
     g.fillStyle = grd;
     g.fillRect(0, 0, WORLD_W, WORLD_H);
     if (th.stars) {
-      for (let i = 0; i < 260; i++) {
+      for (let i = 0; i < 220; i++) {
         const x = Math.random() * WORLD_W,
-          y = Math.random() * WORLD_H * 0.7;
-        g.globalAlpha = Math.random() * 0.8 + 0.2;
+          y = Math.random() * WORLD_H * 0.65;
+        g.globalAlpha = Math.random() * 0.7 + 0.2;
         g.fillStyle = '#fff';
-        g.fillRect(x, y, Math.random() < 0.1 ? 2 : 1, Math.random() < 0.1 ? 2 : 1);
+        const s = Math.random() < 0.08 ? 2 : 1;
+        g.fillRect(x, y, s, s);
       }
       g.globalAlpha = 1;
     }
-    if (th.sun) {
-      const sx = th.sun.x * WORLD_W,
-        sy = th.sun.y * WORLD_H;
-      const halo = g.createRadialGradient(sx, sy, 0, sx, sy, th.sun.r * 6);
-      halo.addColorStop(0, th.sun.color);
-      halo.addColorStop(0.15, th.sun.color + '88');
-      halo.addColorStop(1, 'rgba(0,0,0,0)');
-      g.globalAlpha = 0.55;
-      g.fillStyle = halo;
-      g.fillRect(0, 0, WORLD_W, WORLD_H);
-      g.globalAlpha = 1;
-      g.fillStyle = th.sun.color;
-      g.beginPath();
-      g.arc(sx, sy, th.sun.r, 0, Math.PI * 2);
-      g.fill();
-    }
-    // parallax-style mountain silhouettes with atmospheric fog between layers
-    th.mountains.forEach((col, layer) => {
-      const base = WORLD_H * (0.42 + layer * 0.09);
-      const amp = 120 - layer * 25;
-      const ph = Math.random() * 1000;
-      g.fillStyle = col;
-      g.beginPath();
-      g.moveTo(0, WORLD_H);
-      for (let x = 0; x <= WORLD_W; x += 6) {
-        const y =
-          base -
-          amp * (0.5 + 0.5 * Math.sin((x + ph) * 0.004 * (1 + layer * 0.4))) * (0.6 + 0.4 * Math.sin((x + ph * 2) * 0.0113)) -
-          Math.abs(Math.sin((x + ph) * 0.021)) * 18;
-        g.lineTo(x, y);
-      }
-      g.lineTo(WORLD_W, WORLD_H);
-      g.fill();
-      g.fillStyle = th.fog;
-      g.fillRect(0, 0, WORLD_W, WORLD_H);
-    });
   }
 
   /** Copy changed terrain pixels into the terrain bitmap, with lit edges and shaded overhangs. */
@@ -136,10 +100,9 @@ export class Renderer {
         let c = color[i];
         // distance to open air above (0..4) gives a lit rim; air below gives a dark underside
         let up = 0;
-        while (up < 5 && y - up - 1 >= 0 && mask[i - (up + 1) * w]) up++;
-        if (up < 5) c = blend(c, edge, up === 0 ? 0.85 : up === 1 ? 0.55 : up === 2 ? 0.3 : 0.12);
-        else if (y + 1 < t.h && !mask[i + w]) c = blend(c, 0, 0.45);
-        else if (y + 2 < t.h && !mask[i + 2 * w]) c = blend(c, 0, 0.25);
+        while (up < 2 && y - up - 1 >= 0 && mask[i - (up + 1) * w]) up++;
+        if (up < 2) c = blend(c, edge, up === 0 ? 0.75 : 0.35);
+        else if (y + 1 < t.h && !mask[i + w]) c = blend(c, 0, 0.35);
         out[i] = c;
       }
     }
@@ -163,7 +126,6 @@ export class Renderer {
     ctx.translate(-WORLD_W / 2, -WORLD_H / 2);
 
     ctx.drawImage(this.bg, -400, -60, WORLD_W + 800, WORLD_H + 120);
-    this.drawClouds(ctx, dt);
     ctx.drawImage(this.terrainCanvas, 0, 0);
     this.drawFlameGlow(ctx);
     this.fx.drawBack(ctx);
@@ -195,23 +157,6 @@ export class Renderer {
     g.fillRect(0, 0, v.width, v.height);
   }
 
-  private drawClouds(ctx: CanvasRenderingContext2D, dt: number) {
-    const col = this.game.theme.cloud;
-    ctx.fillStyle = col;
-    for (const c of this.clouds) {
-      c.x += this.game.wind * 4 * c.v * dt + 3 * dt;
-      if (c.x > WORLD_W + 200) c.x = -200;
-      if (c.x < -200) c.x = WORLD_W + 200;
-      ctx.beginPath();
-      for (let k = 0; k < 5; k++) {
-        const r = (26 + ((k * 17) % 13)) * c.s;
-        ctx.moveTo(c.x + (k - 2) * 28 * c.s + r, c.y + Math.sin(k * 1.7) * 8 * c.s);
-        ctx.arc(c.x + (k - 2) * 28 * c.s, c.y + Math.sin(k * 1.7) * 8 * c.s, r, 0, Math.PI * 2);
-      }
-      ctx.fill();
-    }
-  }
-
   private drawFlameGlow(ctx: CanvasRenderingContext2D) {
     if (!this.game.flames.length) return;
     ctx.globalCompositeOperation = 'lighter';
@@ -236,20 +181,21 @@ export class Renderer {
     // ground shadow
     ctx.fillStyle = 'rgba(0,0,0,0.35)';
     ctx.beginPath();
-    ctx.ellipse(t.x, t.y + 1, 20, 4, 0, 0, Math.PI * 2);
+    ctx.ellipse(t.x, t.y + 1, 20 * TANK_SCALE, 4 * TANK_SCALE, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.translate(t.x, t.y);
     ctx.rotate(t.tilt);
+    ctx.scale(TANK_SCALE, TANK_SCALE);
     const recoil = t.recoil * t.recoil * 5;
 
     // barrel (drawn first so the turret covers its base)
-    const pivotY = -PIVOT_HEIGHT;
+    const pivotY = -PIVOT_HEIGHT / TANK_SCALE;
     const a = -p.angle * DEG - t.tilt;
     ctx.save();
     ctx.translate(0, pivotY);
     ctx.rotate(a);
-    const bl = BARREL_LEN - recoil;
+    const bl = BARREL_LEN / TANK_SCALE - recoil;
     const bgrd = ctx.createLinearGradient(0, -3, 0, 3);
     bgrd.addColorStop(0, '#e9eef2');
     bgrd.addColorStop(0.5, '#8a96a0');
@@ -318,7 +264,7 @@ export class Renderer {
     ctx.save();
     ctx.font = '700 14px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    const ny = t.y - 44 - (active ? 6 + Math.sin(time * 5) * 3 : 0);
+    const ny = t.y - 58 - (active ? 6 + Math.sin(time * 5) * 3 : 0);
     ctx.lineWidth = 4;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';
     ctx.strokeText(p.name, t.x, ny);
@@ -340,7 +286,7 @@ export class Renderer {
     const g = this.game;
     const p = g.player;
     const pv = g.pivot(g.current);
-    const len = 40 + p.power * 1.3;
+    const len = 52 + p.power * 1.3;
     const a = p.angle * DEG;
     ctx.save();
     ctx.setLineDash([2, 7]);
@@ -348,7 +294,7 @@ export class Renderer {
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = 'rgba(255,255,255,0.55)';
     ctx.beginPath();
-    ctx.moveTo(pv.x + Math.cos(a) * 30, pv.y - Math.sin(a) * 30);
+    ctx.moveTo(pv.x + Math.cos(a) * 42, pv.y - Math.sin(a) * 42);
     ctx.lineTo(pv.x + Math.cos(a) * len, pv.y - Math.sin(a) * len);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -357,7 +303,7 @@ export class Renderer {
     ctx.globalAlpha = 0.85;
     ctx.lineWidth = 3;
     ctx.beginPath();
-    ctx.arc(pv.x, pv.y, 34, -a - 0.25, -a + 0.25);
+    ctx.arc(pv.x, pv.y, 46, -a - 0.2, -a + 0.2);
     ctx.stroke();
     ctx.restore();
   }

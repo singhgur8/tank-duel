@@ -1,7 +1,6 @@
 import './styles.css';
-import { DT, MAX_WIND } from './config';
+import { DT } from './config';
 import { Rng, clamp } from './core/rng';
-import { THEMES } from './core/themes';
 import { CpuController } from './game/ai';
 import { Game, type GameOptions } from './game/game';
 import { getWeapon } from './game/weapons';
@@ -9,6 +8,8 @@ import type { GameCommand } from './net/commands';
 import { Audio } from './render/audio';
 import { Effects } from './render/effects';
 import { Renderer } from './render/renderer';
+import { weaponIcon } from './render/icons';
+import { gameOptions, initLobby, runDraft, type MatchSettings } from './ui/lobby';
 
 declare const __SINGLE_FILE__: boolean;
 
@@ -21,7 +22,6 @@ let game: Game | null = null;
 let renderer: Renderer | null = null;
 let cpus: (CpuController | null)[] = [];
 let demo = false;
-let lastOpts: GameOptions | null = null;
 let paused = false;
 let lastTurnKey = '';
 let gameOverShown = false;
@@ -43,54 +43,66 @@ function saveSettings(s: object) {
   }
 }
 
-// ── menu ──
-let mode: 'hotseat' | 'cpu' = 'hotseat';
-const themeSel = $<HTMLSelectElement>('#theme');
-for (const t of THEMES) themeSel.add(new Option(t.name, t.id));
-const settings = loadSettings();
-if (settings.mode) mode = settings.mode;
-if (settings.name0) $<HTMLInputElement>('#name0').value = settings.name0;
-if (settings.name1) $<HTMLInputElement>('#name1').value = settings.name1;
-if (settings.cpuLevel) $<HTMLInputElement>('#cpu-level').value = String(settings.cpuLevel);
-if (settings.wcount) $<HTMLSelectElement>('#wcount').value = String(settings.wcount);
-if (settings.theme !== undefined) themeSel.value = settings.theme;
-if (settings.muted) audio.setMuted(true);
-
+// ── lobby & match flow ──
+const stored = loadSettings();
+if (stored.muted) audio.setMuted(true);
+const lobby = initLobby(
+  stored.lobby ?? {},
+  (s) => saveSettings({ ...loadSettings(), lobby: s }),
+  () => {
+    audio.unlock();
+    audio.suppressed = false;
+    audio.click();
+  },
+);
 function syncMenu() {
-  document.querySelectorAll<HTMLButtonElement>('.mode[data-mode]').forEach((b) => b.classList.toggle('active', b.dataset.mode === mode));
-  $('#name1-wrap').classList.toggle('hidden', mode === 'cpu');
-  $('#cpu-wrap').classList.toggle('hidden', mode !== 'cpu');
-  $('#cpu-level-val').textContent = $<HTMLInputElement>('#cpu-level').value;
   $('#mute-btn').textContent = audio.muted ? '🔇' : '🔊';
 }
-document.querySelectorAll<HTMLButtonElement>('.mode[data-mode]').forEach((b) =>
-  b.addEventListener('click', () => {
-    mode = b.dataset.mode as 'hotseat' | 'cpu';
-    audio.unlock();
-    audio.click();
-    syncMenu();
-  }),
-);
-$('#cpu-level').addEventListener('input', syncMenu);
 syncMenu();
+
+interface Match {
+  settings: MatchSettings;
+  round: number;
+  wins: [number, number];
+  totals: [number, number];
+  firstPicker: number;
+}
+let match: Match | null = null;
+let draft: { cancel: () => void } | null = null;
 
 $('#start-btn').addEventListener('click', () => {
   audio.unlock();
-  const name0 = $<HTMLInputElement>('#name0').value.trim() || 'Player 1';
-  const name1 = $<HTMLInputElement>('#name1').value.trim() || 'Player 2';
-  const cpuLevel = Number($<HTMLInputElement>('#cpu-level').value);
-  const wcount = Number($<HTMLSelectElement>('#wcount').value);
-  saveSettings({ mode, name0, name1, cpuLevel, wcount, theme: themeSel.value, muted: audio.muted });
-  startGame({
-    players: [{ name: name0 }, mode === 'cpu' ? { name: `CPU ${cpuLevel}`, cpuLevel } : { name: name1 }],
-    weaponsPerPlayer: wcount,
-    seed: (Math.random() * 2 ** 31) | 0,
-    themeId: themeSel.value || undefined,
-  });
+  const settings = lobby.get();
+  saveSettings({ ...loadSettings(), lobby: settings });
+  match = { settings, round: 1, wins: [0, 0], totals: [0, 0], firstPicker: Math.random() < 0.5 ? 0 : 1 };
+  startRound();
 });
 
+function startRound() {
+  if (!match) return;
+  const m = match;
+  const seed = (Math.random() * 2 ** 31) | 0;
+  const opts = gameOptions(m.settings, seed);
+  $('#menu').classList.add('hidden');
+  $('#gameover').classList.add('hidden');
+  if (m.settings.selection === 'draft') {
+    paused = true; // freeze whatever is behind the draft
+    audio.suppressed = false;
+    draft = runDraft({
+      players: opts.players,
+      perPlayer: m.settings.weapons,
+      first: (m.firstPicker + m.round - 1) % 2,
+      rng: new Rng(seed ^ 0xd4af7),
+      onPick: () => audio.click(),
+      onDone: (hands) => {
+        draft = null;
+        startGame({ ...opts, hands });
+      },
+    });
+  } else startGame(opts);
+}
+
 function startGame(opts: GameOptions) {
-  lastOpts = opts;
   game = new Game(opts, fx);
   fx.reset(game);
   renderer = new Renderer(canvas, game, fx);
@@ -101,7 +113,7 @@ function startGame(opts: GameOptions) {
   lastTurnKey = '';
   gameOverShown = false;
   paused = false;
-  for (const id of ['#menu', '#gameover', '#pause', '#picker']) $(id).classList.add('hidden');
+  for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft']) $(id).classList.add('hidden');
   hudCache.clear();
 }
 
@@ -251,8 +263,7 @@ function openPicker() {
     const w = getWeapon(id);
     const b = document.createElement('button');
     b.className = 'wcard' + (i === p.selected ? ' sel' : '');
-    const col = w.projectile?.glow ?? w.projectile?.color ?? w.beam?.color ?? '#fff';
-    b.innerHTML = `<span class="cat">${w.category}</span><b><span class="dot" style="background:${col};color:${col}"></span>${w.name}</b><small>${w.description}</small>`;
+    b.innerHTML = `<img class="wicon" alt="" src="${weaponIcon(w)}" /><div class="wtext"><span class="cat">${w.category}</span><b>${w.name}</b><small>${w.description}</small></div>`;
     b.addEventListener('click', () => {
       send({ t: 'weapon', index: i });
       audio.click();
@@ -285,8 +296,20 @@ $('#mute-btn').addEventListener('click', () => {
 });
 $('#quit-btn').addEventListener('click', toMenu);
 $('#menu-btn').addEventListener('click', toMenu);
-$('#rematch-btn').addEventListener('click', () => lastOpts && startGame({ ...lastOpts, seed: (Math.random() * 2 ** 31) | 0 }));
+$('#rematch-btn').addEventListener('click', () => {
+  if (!match) return;
+  match = { ...match, round: 1, wins: [0, 0], totals: [0, 0] };
+  startRound();
+});
+$('#next-btn').addEventListener('click', () => {
+  if (!match) return;
+  match.round++;
+  startRound();
+});
 function toMenu() {
+  draft?.cancel();
+  draft = null;
+  match = null;
   paused = false;
   $('#pause').classList.add('hidden');
   $('#gameover').classList.add('hidden');
@@ -319,22 +342,22 @@ function updateHud() {
   });
   const w = g.wind;
   const fill = $('#wind-fill');
-  const pct = (Math.abs(w) / MAX_WIND) * 50;
+  const pct = g.maxWind > 0 ? (Math.abs(w) / g.maxWind) * 50 : 0;
   fill.style.left = w >= 0 ? '50%' : `${50 - pct}%`;
   fill.style.width = `${pct}%`;
-  setText('#wind-val', w === 0 ? 'calm' : `${w > 0 ? '→' : '←'} ${Math.abs(w)}`);
+  setText('#wind-val', g.maxWind === 0 ? 'off' : w === 0 ? 'calm' : `${w > 0 ? '→' : '←'} ${Math.abs(w)}`);
   setText('#turn-info', g.phase === 'gameover' ? 'Game over' : `Turn ${g.turn} · ${g.player.name}`);
 
   const p = g.player;
   const wpn = g.currentWeapon;
   setText('#weapon-name', wpn ? wpn.name : 'No weapons');
   setText('#weapon-count', `${p.weapons.length ? p.selected + 1 : 0}/${p.weapons.length}`);
-  const col = wpn ? wpn.projectile?.glow ?? wpn.projectile?.color ?? wpn.beam?.color ?? '#fff' : '#555';
-  const dot = $('#weapon-dot');
-  if (dot.dataset.c !== col) {
-    dot.dataset.c = col;
-    dot.style.background = col;
-    dot.style.color = col;
+  const icon = $<HTMLImageElement>('#weapon-icon');
+  const src = wpn ? weaponIcon(wpn) : '';
+  if (icon.dataset.k !== (wpn?.id ?? '')) {
+    icon.dataset.k = wpn?.id ?? '';
+    if (src) icon.src = src;
+    icon.style.visibility = src ? 'visible' : 'hidden';
   }
   setText('#angle-val', `${Math.round(p.angle * 10) / 10}°`);
   setText('#power-val', `${Math.round(p.power)}`);
@@ -368,15 +391,37 @@ function updateHud() {
   }
   if (g.phase === 'gameover' && !gameOverShown) {
     gameOverShown = true;
-    setTimeout(() => {
-      const win = g.winner;
-      $('#go-title').textContent = win < 0 ? 'Draw!' : `${g.players[win].name} wins!`;
-      $('#go-title').style.color = win < 0 ? '#fff' : g.players[win].color;
-      $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score)}</b></div>`).join('');
-      $('#gameover').classList.remove('hidden');
-      audio.fanfare();
-    }, 900);
+    setTimeout(() => showRoundResult(g), 900);
   }
+}
+
+function showRoundResult(g: Game) {
+  const win = g.winner;
+  const m = match;
+  const rounds = m?.settings.rounds ?? 1;
+  if (m) {
+    if (win >= 0) m.wins[win]++;
+    g.players.forEach((p, i) => (m.totals[i] += Math.round(p.score)));
+  }
+  const need = Math.floor(rounds / 2) + 1;
+  const over = !m || rounds === 1 || m.wins.some((w) => w >= need) || m.round >= rounds;
+  $('#go-round').textContent = rounds > 1 && m ? `Round ${m.round} of ${rounds}` : '';
+  let title = win < 0 ? 'Draw!' : `${g.players[win].name} wins!`;
+  let color = win < 0 ? '#fff' : g.players[win].color;
+  if (over && m && rounds > 1) {
+    // match winner: most round wins, then most total points
+    const mw = m.wins[0] !== m.wins[1] ? (m.wins[0] > m.wins[1] ? 0 : 1) : m.totals[0] !== m.totals[1] ? (m.totals[0] > m.totals[1] ? 0 : 1) : -1;
+    title = mw < 0 ? 'The match is a draw!' : `${g.players[mw].name} wins the match!`;
+    color = mw < 0 ? '#fff' : g.players[mw].color;
+  }
+  $('#go-title').textContent = title;
+  $('#go-title').style.color = color;
+  $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score)}</b></div>`).join('');
+  $('#go-match').textContent = m && rounds > 1 ? `Rounds won: ${g.players[0].name} ${m.wins[0]} · ${g.players[1].name} ${m.wins[1]}` : '';
+  $('#next-btn').classList.toggle('hidden', over);
+  $('#rematch-btn').classList.toggle('hidden', !over);
+  $('#gameover').classList.remove('hidden');
+  audio.fanfare();
 }
 
 // ── main loop: fixed-step simulation, variable-rate rendering ──
@@ -436,6 +481,8 @@ $('#install-btn').addEventListener('click', () => {
 
 // Idle CPU-vs-CPU demo behind the menu so the title screen is alive (silent).
 function startDemo() {
+  draft?.cancel();
+  draft = null;
   startGame({ players: [{ name: 'Blue', cpuLevel: 7 }, { name: 'Orange', cpuLevel: 7 }], weaponsPerPlayer: 30, seed: (Math.random() * 2 ** 31) | 0 });
   demo = true;
   audio.suppressed = true;

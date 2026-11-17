@@ -63,7 +63,7 @@ describe('QA fixes', () => {
       let hit = 0;
       for (let s = 1; s <= 30; s++) {
         const g = mk(s * 3);
-        g.player.weapons = ['heavy-shell'];
+        g.players[1].weapons = ['heavy-shell'];
         const plan = planTurn(g, 1, lvl, new Rng(s * 77 + lvl));
         const r = predictShot(g, 1, getWeapon('heavy-shell').projectile!, plan.angle, plan.power);
         const c = tankCenter(g.tanks[0]);

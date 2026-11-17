@@ -74,6 +74,8 @@ export interface WeaponDef {
   name: string;
   description: string;
   category: WeaponCategory;
+  /** Icon key from src/render/icons.ts. Defaults to the weapon id; reuse any key for a new weapon. */
+  icon?: string;
   /** Either a projectile or a beam. */
   projectile?: ProjectileDef;
   /** Beams can also aim below the horizon (angle range widens to BEAM_ANGLE_MIN..BEAM_ANGLE_MAX). */

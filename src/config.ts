@@ -10,10 +10,12 @@ export const MAX_SPEED = 980; // muzzle speed at power 100
 export const WIND_ACCEL = 5.5; // px/s^2 per wind unit
 export const MAX_WIND = 10;
 
-export const TANK_HIT_RADIUS = 15;
-export const TANK_HALF_WIDTH = 16;
-export const BARREL_LEN = 24;
-export const PIVOT_HEIGHT = 12; // turret pivot above ground contact
+/** Tank drawing scale. Tanks are about 3.5% of the field width, in line with classic artillery games. */
+export const TANK_SCALE = 1.4;
+export const TANK_HIT_RADIUS = 20;
+export const TANK_HALF_WIDTH = 22;
+export const BARREL_LEN = 34;
+export const PIVOT_HEIGHT = 17; // turret pivot above ground contact
 
 export const BEDROCK = 6; // indestructible rows at the bottom
 

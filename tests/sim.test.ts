@@ -70,7 +70,7 @@ describe('cpu', () => {
       let total = 0;
       for (let s = 1; s <= 10; s++) {
         const g = mk(s, lvl);
-        g.player.weapons = ['shell'];
+        g.players[1].weapons = ['shell'];
         const plan = planTurn(g, 1, lvl, new Rng(s * 99));
         const r = predictShot(g, 1, getWeapon('shell').projectile!, plan.angle, plan.power);
         total += r.tank === 0 ? 0 : Math.hypot(r.x - g.tanks[0].x, r.y - g.tanks[0].y);

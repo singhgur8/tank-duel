@@ -3,7 +3,7 @@ import {
   PIVOT_HEIGHT, TANK_HALF_WIDTH, TANK_HIT_RADIUS, TURN_SETTLE_DELAY, WORLD_H, WORLD_W,
 } from '../config';
 import { Rng, clamp, DEG } from '../core/rng';
-import { Terrain } from '../core/terrain';
+import { Terrain, type TerrainStyle } from '../core/terrain';
 import { THEMES, type Theme } from '../core/themes';
 import type { GameCommand } from '../net/commands';
 import { flightStep, launchVelocity, muzzle, tankCenter, type FlightCtx, type FlightState } from './flight';
@@ -39,6 +39,12 @@ export interface GameOptions {
   weaponsPerPlayer: number;
   seed: number;
   themeId?: string;
+  /** Pre-picked hands from a draft. Omit to deal at random. */
+  hands?: [string[], string[]];
+  /** Strongest wind (0 = no wind). Defaults to MAX_WIND. */
+  maxWind?: number;
+  /** Hill shape. Omit for random. */
+  terrain?: TerrainStyle;
 }
 
 export interface Player {
@@ -123,7 +129,7 @@ export class Game {
     this.theme = THEMES.find((t) => t.id === opts.themeId) ?? this.rng.pick(THEMES);
     const x1 = Math.round(this.rng.range(0.07, 0.22) * WORLD_W);
     const x2 = Math.round(this.rng.range(0.78, 0.93) * WORLD_W);
-    this.terrain = Terrain.generate(WORLD_W, WORLD_H, this.rng, this.theme, [x1, x2]);
+    this.terrain = Terrain.generate(WORLD_W, WORLD_H, this.rng, this.theme, [x1, x2], opts.terrain);
     this.tanks = [x1, x2].map((x) => this.makeTank(x));
     this.players = opts.players.map((p, i) => ({
       name: p.name,
@@ -136,7 +142,8 @@ export class Game {
       angle: i === 0 ? 50 : 130,
       power: 60,
     }));
-    this.dealWeapons(opts.weaponsPerPlayer);
+    if (opts.hands) opts.hands.forEach((h, i) => (this.players[i].weapons = [...h]));
+    else this.dealWeapons(opts.weaponsPerPlayer);
     this.wind = this.rollWind();
     this.current = this.rng.int(0, 1);
   }
@@ -163,9 +170,15 @@ export class Game {
     for (const p of this.players) p.weapons.sort((a, b) => WEAPONS.findIndex((w) => w.id === a) - WEAPONS.findIndex((w) => w.id === b));
   }
 
+  get maxWind(): number {
+    return this.opts.maxWind ?? MAX_WIND;
+  }
+
   private rollWind(): number {
-    const target = this.rng.range(-MAX_WIND, MAX_WIND);
-    return Math.round(clamp(this.wind * 0.35 + target * 0.65, -MAX_WIND, MAX_WIND));
+    const m = this.maxWind;
+    if (m <= 0) return 0;
+    const target = this.rng.range(-m, m);
+    return Math.round(clamp(this.wind * 0.35 + target * 0.65, -m, m));
   }
 
   get player() {

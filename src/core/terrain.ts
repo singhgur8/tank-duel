@@ -2,6 +2,9 @@ import { BEDROCK } from '../config';
 import { Rng, clamp } from './rng';
 import type { RGB, Theme } from './themes';
 
+/** Hill shape for a new battlefield. */
+export type TerrainStyle = 'rolling' | 'mountains' | 'flat' | 'valley';
+
 export interface Rect {
   x0: number;
   y0: number;
@@ -32,7 +35,8 @@ export class Terrain {
   dirty: Rect | null = null;
   private active = new Set<number>();
   private colSpeed: Float32Array;
-  private dirtColor: RGB = [120, 90, 60];
+  private top: RGB = [120, 160, 80];
+  private deep: RGB = [60, 90, 40];
 
   constructor(w: number, h: number) {
     this.w = w;
@@ -42,9 +46,10 @@ export class Terrain {
     this.colSpeed = new Float32Array(w);
   }
 
-  static generate(w: number, h: number, rng: Rng, theme: Theme, flatSpots: number[] = []): Terrain {
+  static generate(w: number, h: number, rng: Rng, theme: Theme, flatSpots: number[] = [], style?: TerrainStyle): Terrain {
     const t = new Terrain(w, h);
-    t.dirtColor = theme.dirt;
+    t.top = theme.top;
+    t.deep = theme.deep;
     // Layered smooth value noise for the skyline.
     const octave = (spacing: number, amp: number) => {
       const n = Math.ceil(w / spacing) + 2;
@@ -57,13 +62,19 @@ export class Terrain {
         return (pts[i] * (1 - s) + pts[i + 1] * s) * amp;
       };
     };
-    const style = rng.int(0, 2);
-    const o1 = octave(rng.range(260, 420), h * (style === 0 ? 0.16 : style === 1 ? 0.22 : 0.12));
-    const o2 = octave(rng.range(90, 150), h * 0.06);
-    const o3 = octave(28, h * 0.012);
+    // Smooth rolling hills: two broad octaves, no small bumps.
+    const pickedStyle = rng.int(0, 3); // always drawn so the seed sequence doesn't depend on the option
+    const st: TerrainStyle = style ?? (['rolling', 'mountains', 'flat', 'valley'] as const)[pickedStyle];
+    const amp = st === 'mountains' ? 0.23 : st === 'flat' ? 0.05 : st === 'valley' ? 0.08 : 0.14;
+    const o1 = octave(rng.range(300, 460), h * amp);
+    const o2 = octave(rng.range(130, 190), h * (st === 'flat' ? 0.02 : 0.045));
     const base = h * rng.range(0.56, 0.66);
     const heights = new Float32Array(w);
-    for (let x = 0; x < w; x++) heights[x] = clamp(base + o1(x) + o2(x) + o3(x), h * 0.28, h * 0.86);
+    for (let x = 0; x < w; x++) {
+      // valley: high ground at both ends, a deep basin in the middle
+      const v = st === 'valley' ? -Math.cos(((x / w) * 2 - 1) * Math.PI * 0.5) * h * 0.2 + h * 0.08 : 0;
+      heights[x] = clamp(base + o1(x) + o2(x) - v, h * 0.3, h * 0.88);
+    }
     // Soften the ground where tanks start so they sit nicely.
     for (const fx of flatSpots) {
       const cx = Math.round(fx);
@@ -75,38 +86,12 @@ export class Terrain {
         heights[x] = heights[x] * (1 - s) + target * s;
       }
     }
-    const strata = octave(60, 14);
-    // Depth shading is measured from a smoothed skyline so cliffs don't leave vertical seams.
-    const smooth = new Float32Array(w);
-    const R = 70;
-    for (let x = 0; x < w; x++) {
-      let s = 0,
-        n = 0;
-      for (let k = Math.max(0, x - R); k <= Math.min(w - 1, x + R); k += 5) {
-        s += heights[k];
-        n++;
-      }
-      smooth[x] = s / n;
-    }
     for (let x = 0; x < w; x++) {
       const top = Math.round(heights[x]);
-      const ref = smooth[x];
-      const sx = strata(x);
       for (let y = top; y < h; y++) {
         const i = y * w + x;
         t.mask[i] = 1;
-        // blend the local and the smoothed skyline: peaks keep a lit top, valleys don't streak
-        const d = Math.max(0, y - (top * 0.35 + ref * 0.65));
-        const k = clamp(d / 300, 0, 1);
-        const kk = k * k * (3 - 2 * k);
-        const band = 1 + 0.07 * Math.sin((y + sx) * 0.11) + 0.04 * Math.sin((y - sx) * 0.031);
-        const grain = 1 + (hash2(x, y) - 0.5) * 0.12;
-        const m = band * grain;
-        t.color[i] = pack(
-          (theme.top[0] * (1 - kk) + theme.deep[0] * kk) * m,
-          (theme.top[1] * (1 - kk) + theme.deep[1] * kk) * m,
-          (theme.top[2] * (1 - kk) + theme.deep[2] * kk) * m,
-        );
+        t.color[i] = t.groundColor(y);
       }
     }
     t.dirty = { x0: 0, y0: 0, x1: w - 1, y1: h - 1 };
@@ -194,10 +179,17 @@ export class Terrain {
     return removed;
   }
 
-  private dirtPixel(x: number, y: number): number {
-    const c = this.dirtColor;
-    const m = 1 + (hash2(x * 3 + 7, y * 5 + 1) - 0.5) * 0.22 + 0.05 * Math.sin(y * 0.2);
-    return pack(c[0] * m, c[1] * m, c[2] * m);
+  /** Classic solid ground: one colour per row, lighter near the top of the field, darker toward the bottom. */
+  groundColor(y: number, dim = 1): number {
+    const k = clamp((y - this.h * 0.3) / (this.h * 0.7), 0, 1);
+    const a = this.top,
+      b = this.deep;
+    return pack((a[0] + (b[0] - a[0]) * k) * dim, (a[1] + (b[1] - a[1]) * k) * dim, (a[2] + (b[2] - a[2]) * k) * dim);
+  }
+
+  /** Added dirt: same ground colour, a touch darker so new dirt reads as fresh. */
+  private dirtPixel(_x: number, y: number): number {
+    return this.groundColor(y, 0.86);
   }
 
   /** Add dirt in a circle. */
