@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0d0f1a" />
+    <meta name="description" content="Turn-based artillery tank duel. Hot-seat or vs CPU. Plays offline." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <title>Tank Duel</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <canvas id="game"></canvas>
+
+        <div id="hud-top">
+          <div class="pcard" id="p0card"><div class="pname"></div><div class="pscore">0</div><div class="pmeta"></div></div>
+          <div id="center-hud">
+            <div id="wind"><span class="wlabel">WIND</span><div id="wind-bar"><div id="wind-fill"></div><div id="wind-mid"></div></div><span id="wind-val">0</span></div>
+            <div id="turn-info"></div>
+          </div>
+          <div class="pcard right" id="p1card"><div class="pname"></div><div class="pscore">0</div><div class="pmeta"></div></div>
+        </div>
+
+        <div id="banner"></div>
+        <div id="cpu-thinking" class="hidden">CPU is aiming…</div>
+        <button id="pause-btn" class="icon-btn" aria-label="Menu">❚❚</button>
+        <button id="mute-btn" class="icon-btn" aria-label="Sound">🔊</button>
+      </div>
+
+      <div id="controls">
+        <div class="ctrl weapon">
+          <button class="step" data-act="wprev" aria-label="Previous weapon">‹</button>
+          <button id="weapon-btn"><span id="weapon-dot"></span><span id="weapon-name">Shell</span><span id="weapon-count"></span></button>
+          <button class="step" data-act="wnext" aria-label="Next weapon">›</button>
+        </div>
+        <div class="ctrl">
+          <label>Angle</label>
+          <div class="row">
+            <button class="step" data-act="a+" data-hold aria-label="Angle left">‹</button>
+            <input type="range" id="angle" min="0" max="180" step="1" />
+            <button class="step" data-act="a-" data-hold aria-label="Angle right">›</button>
+            <span class="val" id="angle-val">45°</span>
+          </div>
+        </div>
+        <div class="ctrl">
+          <label>Power</label>
+          <div class="row">
+            <button class="step" data-act="p-" data-hold aria-label="Less power">−</button>
+            <input type="range" id="power" min="5" max="100" step="1" />
+            <button class="step" data-act="p+" data-hold aria-label="More power">+</button>
+            <span class="val" id="power-val">60</span>
+          </div>
+        </div>
+        <div class="ctrl move">
+          <label>Move <span id="moves-left"></span></label>
+          <div class="row">
+            <button class="step" data-act="mleft" aria-label="Move left">◀</button>
+            <button class="step" data-act="mright" aria-label="Move right">▶</button>
+          </div>
+        </div>
+        <button id="fire-btn">FIRE</button>
+      </div>
+
+      <!-- Main menu -->
+      <div id="menu" class="overlay">
+        <div class="panel">
+          <h1>TANK<span>DUEL</span></h1>
+          <p class="tag">Turn-based artillery. Bend shells around the wind, carve the hills, outscore your rival.</p>
+          <div class="modes">
+            <button class="mode active" data-mode="hotseat"><b>2 Players</b><small>Same device, take turns</small></button>
+            <button class="mode" data-mode="cpu"><b>vs CPU</b><small>Difficulty 1–10</small></button>
+            <button class="mode disabled" disabled title="Coming later"><b>Online</b><small>Coming soon</small></button>
+          </div>
+          <div class="field-grid">
+            <label>Player 1 <input id="name0" maxlength="12" value="Player 1" /></label>
+            <label id="name1-wrap">Player 2 <input id="name1" maxlength="12" value="Player 2" /></label>
+            <label id="cpu-wrap" class="hidden">CPU level <span id="cpu-level-val">5</span>
+              <input type="range" id="cpu-level" min="1" max="10" step="1" value="5" />
+            </label>
+            <label>Weapons each
+              <select id="wcount"><option>5</option><option selected>10</option><option>15</option><option>20</option></select>
+            </label>
+            <label>Battlefield
+              <select id="theme"><option value="">Random</option></select>
+            </label>
+          </div>
+          <button id="start-btn" class="primary">Start battle</button>
+          <div class="menu-foot">
+            <button id="install-btn" class="ghost hidden">Install app</button>
+            <span class="keys">Keys: ←/→ angle · ↑/↓ power (hold Shift for fine) · A/D move · Q/E weapon · Space fire · Esc menu · Drag on the field to aim</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weapon picker -->
+      <div id="picker" class="overlay hidden">
+        <div class="panel wide">
+          <div class="picker-head"><h2>Choose weapon</h2><button class="ghost" id="picker-close">Close</button></div>
+          <div id="picker-grid"></div>
+        </div>
+      </div>
+
+      <!-- Pause -->
+      <div id="pause" class="overlay hidden">
+        <div class="panel small">
+          <h2>Paused</h2>
+          <button class="primary" id="resume-btn">Resume</button>
+          <button class="ghost" id="quit-btn">Quit to menu</button>
+        </div>
+      </div>
+
+      <!-- Game over -->
+      <div id="gameover" class="overlay hidden">
+        <div class="panel small">
+          <h2 id="go-title">Victory</h2>
+          <div id="go-scores"></div>
+          <button class="primary" id="rematch-btn">Rematch</button>
+          <button class="ghost" id="menu-btn">Main menu</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+{
+  "name": "tank-duel",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Turn-based artillery tank game. Hot-seat, CPU opponent, destructible terrain, data-driven weapons. Installable offline PWA.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:single": "vite build --mode single",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "vite": "6.3.5",
+    "vite-plugin-singlefile": "2.2.0",
+    "vitest": "3.2.4"
+  }
+}
