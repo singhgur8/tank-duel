@@ -101,6 +101,13 @@ export class Audio {
     }
   }
 
+  thunder() {
+    if (!this.ok()) return;
+    this.noise(0.08, 'highpass', 5000, 3000, 0.6, 1);
+    this.noise(1.6, 'lowpass', 900, 60, 0.9, 0.7, 0.05);
+    this.tone('sine', 70, 30, 1.2, 0.6, 0.05);
+  }
+
   small() {
     if (!this.ok()) return;
     this.noise(0.14, 'bandpass', 1800, 400, 0.4, 1.2);

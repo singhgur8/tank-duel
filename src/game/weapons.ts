@@ -86,6 +86,25 @@ export const WEAPONS: WeaponDef[] = [
     ai: { value: 5 },
   },
 
+  {
+    id: 'excavator', name: 'Excavator', category: 'explosive',
+    description: 'Scoops out an enormous crater but barely scratches armour.',
+    projectile: { radius: 5, color: '#e0b070', trail: 'dirt', onImpact: [boom(120, 10, 'dirt'), { type: 'shake', amount: 0.4 }] },
+    ai: { value: 2 },
+  },
+  {
+    id: 'thunderbolt', name: 'Thunderbolt', category: 'explosive',
+    description: 'Calls lightning down on the spot it lands. Hits hard in a narrow column.',
+    projectile: { radius: 4, color: '#dff0ff', glow: '#7fb8ff', trail: 'plasma', onImpact: [{ type: 'lightning', radius: 48, damage: 52 }] },
+    ai: { value: 7 },
+  },
+  {
+    id: 'earthquake', name: 'Earthquake', category: 'explosive',
+    description: 'Shakes the ground around the impact, cracking hills and rattling every tank nearby.',
+    projectile: { radius: 6, color: '#c9a37a', trail: 'dirt', onImpact: [boom(20, 8, 'dirt'), { type: 'quake', radius: 230, damage: 34 }] },
+    ai: { value: 7 },
+  },
+
   // ── Spreads & splitters ─────────────────────────────────────
   {
     id: 'trio', name: 'Trio', category: 'spread',
@@ -149,6 +168,70 @@ export const WEAPONS: WeaponDef[] = [
     ai: { value: 6 },
   },
 
+  {
+    id: 'chain-gun', name: 'Chain Gun', category: 'spread',
+    description: 'A rattling stream of eight small rounds.',
+    volley: { count: 8, spreadDeg: 3, delay: 0.07 },
+    projectile: { radius: 2.5, color: '#fff0c0', trail: 'spark', onImpact: [boom(16, 8, 'small')] },
+    ai: { value: 6 },
+  },
+  {
+    id: 'scattergun', name: 'Scattergun', category: 'spread',
+    description: 'Seven pellets in a wide cone. Deadly up close.',
+    volley: { count: 7, spreadDeg: 16 },
+    projectile: { radius: 2.5, color: '#ffe0a0', trail: 'spark', onImpact: [boom(18, 10, 'small')] },
+    ai: { value: 5 },
+  },
+  {
+    id: 'fireworks', name: 'Fireworks', category: 'spread',
+    description: 'Bursts at its peak into a ring of colourful stars that fall as little blasts.',
+    projectile: {
+      radius: 4.5, color: '#ffffff', glow: '#ff7ad9', trail: 'spark',
+      onApex: [
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 170, speedJitter: 0.3, projectile: { radius: 3, color: '#ff5ac8', glow: '#ff5ac8', trail: 'plasma', onImpact: [boom(22, 9, 'plasma')] } },
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 120, speedJitter: 0.3, projectile: { radius: 3, color: '#5ae8ff', glow: '#5ae8ff', trail: 'plasma', onImpact: [boom(22, 9, 'ice')] } },
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 220, speedJitter: 0.3, projectile: { radius: 3, color: '#ffd84a', glow: '#ffd84a', trail: 'spark', onImpact: [boom(22, 9, 'small')] } },
+        { type: 'shake', amount: 0.25 },
+      ],
+      consumeOnApex: true,
+      onImpact: [boom(22, 9)],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'airstrike', name: 'Airstrike', category: 'spread',
+    description: 'Marks the top of its arc, then a line of bombs drops straight down below it.',
+    projectile: {
+      radius: 4, color: '#ffef9a', trail: 'smoke',
+      onApex: [{ type: 'spawn', count: 7, spreadDeg: 0, spacing: 42, direction: 'down', speed: 60, angleJitter: 2, projectile: { radius: 3.5, color: '#d9d9d9', trail: 'smoke', onImpact: [boom(30, 16)] } }],
+      consumeOnApex: true,
+      onImpact: [boom(30, 16)],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'acid-rain', name: 'Acid Rain', category: 'spread',
+    description: 'Bursts overhead into a cloud of corrosive drops.',
+    projectile: {
+      radius: 5, color: '#c8ff7a', glow: '#7dff3a', trail: 'plasma',
+      onApex: [{ type: 'spawn', count: 20, spreadDeg: 70, direction: 'down', speed: 90, speedJitter: 0.7, angleJitter: 6, projectile: { radius: 2.2, color: '#a6ff4d', glow: '#7dff3a', trail: 'none', onImpact: [boom(14, 5, 'acid')] } }],
+      consumeOnApex: true,
+      onImpact: [boom(14, 5, 'acid')],
+    },
+    ai: { value: 6 },
+  },
+  {
+    id: 'swarm', name: 'Swarm', category: 'spread',
+    description: 'Releases three small seekers at its peak that hunt the enemy.',
+    projectile: {
+      radius: 5, color: '#ff9a9a', trail: 'smoke',
+      onApex: [{ type: 'spawn', count: 3, spreadDeg: 50, direction: 'velocity', speed: 200, projectile: { radius: 3, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 1.6, delay: 0.25 }, onImpact: [boom(26, 16)] } }],
+      consumeOnApex: true,
+      onImpact: [boom(26, 16)],
+    },
+    ai: { value: 7 },
+  },
+
   // ── Special movement ────────────────────────────────────────
   {
     id: 'roller', name: 'Roller', category: 'special',
@@ -193,6 +276,49 @@ export const WEAPONS: WeaponDef[] = [
     ai: { value: 6 },
   },
 
+  {
+    id: 'triple-roller', name: 'Triple Roller', category: 'special',
+    description: 'Three rollers at once, fanned slightly apart.',
+    volley: { count: 3, spreadDeg: 8 },
+    projectile: { radius: 4.5, color: '#d6d6d6', glow: '#ffffff', trail: 'spark', roll: { maxTime: 6 }, onImpact: [boom(36, 22)] },
+    ai: { value: 6 },
+  },
+  {
+    id: 'wild-ball', name: 'Wild Ball', category: 'special',
+    description: 'A super-bouncy ball that ricochets eight times before it goes off.',
+    projectile: { radius: 4.5, color: '#ffe066', glow: '#ffc400', trail: 'spark', bounces: 8, restitution: 0.86, onImpact: [boom(46, 34)] },
+    ai: { value: 4 },
+  },
+  {
+    id: 'pile-driver', name: 'Pile Driver', category: 'special',
+    description: 'Stops at its peak, slams straight down through the ground and blows up underneath.',
+    projectile: {
+      radius: 5, color: '#cfcfcf', trail: 'smoke',
+      onApex: [{ type: 'spawn', count: 1, spreadDeg: 0, direction: 'down', speed: 760, projectile: { radius: 5, color: '#e8e8e8', glow: '#ffffff', trail: 'spark', burrow: { length: 60, radius: 7, speed: 420 }, onImpact: [boom(58, 48, 'big')] } }],
+      consumeOnApex: true,
+      onImpact: [boom(58, 48, 'big')],
+    },
+    ai: { value: 6 },
+  },
+  {
+    id: 'mole-swarm', name: 'Mole Swarm', category: 'special',
+    description: 'Digs in, then splits into four burrowers that tunnel outward and blow up.',
+    projectile: {
+      radius: 5, color: '#e0b070', trail: 'dirt', burrow: { length: 40, radius: 7, speed: 300 },
+      onImpact: [
+        boom(24, 10, 'dirt'),
+        { type: 'spawn', count: 4, spreadDeg: 140, direction: 'down', speed: 300, projectile: { radius: 3, color: '#e0b070', trail: 'dirt', burrow: { length: 90, radius: 6, speed: 300 }, onImpact: [boom(32, 18, 'dirt')] } },
+      ],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'tracer', name: 'Tracer', category: 'special',
+    description: 'A harmless sighting round. Its full path stays on screen so you can line up the next shot.',
+    projectile: { radius: 3, color: '#9effc8', glow: '#4dff9a', trail: 'spark', tracer: true, onImpact: [{ type: 'shake', amount: 0.05 }] },
+    ai: { value: 0 },
+  },
+
   // ── Fire ────────────────────────────────────────────────────
   {
     id: 'napalm', name: 'Napalm', category: 'special',
@@ -205,6 +331,20 @@ export const WEAPONS: WeaponDef[] = [
     description: 'A huge napalm spill.',
     projectile: { radius: 6, color: '#ff6a2a', glow: '#ff3a0a', trail: 'fire', onImpact: [boom(26, 10, 'fire'), { type: 'napalm', count: 20, duration: 4.5, dps: 10, spread: 190 }] },
     ai: { value: 8 },
+  },
+
+  {
+    id: 'volcano', name: 'Volcano', category: 'special',
+    description: 'Erupts on impact, hurling burning lava bombs up and around.',
+    projectile: {
+      radius: 6, color: '#ff7a2e', glow: '#ff4a12', trail: 'fire',
+      onImpact: [
+        boom(34, 18, 'fire'),
+        { type: 'spawn', count: 12, spreadDeg: 120, direction: 'up', speed: 330, speedJitter: 0.4, angleJitter: 8, projectile: { radius: 3, color: '#ffb347', glow: '#ff5a1f', trail: 'fire', onImpact: [boom(20, 8, 'fire')] } },
+        { type: 'shake', amount: 0.4 },
+      ],
+    },
+    ai: { value: 7 },
   },
 
   // ── Utility / dirt ──────────────────────────────────────────
@@ -235,6 +375,12 @@ export const WEAPONS: WeaponDef[] = [
     id: 'leveler', name: 'Leveler', category: 'utility',
     description: 'Flattens the ground around the impact.',
     projectile: { radius: 5, color: '#cfc2a0', trail: 'dirt', onImpact: [{ type: 'flatten', width: 220 }, { type: 'shake', amount: 0.35 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'spire', name: 'Spire', category: 'utility',
+    description: 'Raises a tall, narrow pillar of rock. Blocks low shots.',
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 54, height: 230 }] },
     ai: { value: 1 },
   },
 ];

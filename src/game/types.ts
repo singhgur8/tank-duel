@@ -5,7 +5,7 @@
  */
 
 export type TrailStyle = 'smoke' | 'fire' | 'spark' | 'plasma' | 'dirt' | 'ice' | 'none';
-export type ExplosionStyle = 'small' | 'standard' | 'big' | 'nuke' | 'plasma' | 'fire' | 'dirt' | 'ice';
+export type ExplosionStyle = 'small' | 'standard' | 'big' | 'nuke' | 'plasma' | 'fire' | 'dirt' | 'ice' | 'acid';
 
 export type Action =
   /** Blast that removes terrain and damages tanks inside `radius`. */
@@ -23,6 +23,10 @@ export type Action =
       speedJitter?: number;
       /** Random +/- degrees applied to each child's direction. */
       angleJitter?: number;
+      /** Place the children side by side this many px apart (a line of bombs) instead of all at one point. */
+      spacing?: number;
+      /** Start the children this many px above the spawn point (for bombs dropped from the sky). */
+      lift?: number;
       projectile: ProjectileDef;
     }
   /** Add a ball of dirt. */
@@ -33,6 +37,10 @@ export type Action =
   | { type: 'flatten'; width: number }
   /** Burning liquid that flows downhill and damages tanks it touches. */
   | { type: 'napalm'; count: number; duration: number; dps: number; spread: number }
+  /** Lightning bolt from the sky onto the point: damages tanks within `radius` (horizontally) and splits the ground. */
+  | { type: 'lightning'; radius: number; damage: number }
+  /** Ground shock: damages tanks standing on the ground within `radius`, cracks the terrain and shakes hard. */
+  | { type: 'quake'; radius: number; damage: number }
   /** Extra camera shake. */
   | { type: 'shake'; amount: number };
 
@@ -55,6 +63,8 @@ export interface ProjectileDef {
   /** Steer toward the nearest enemy once past the top of the arc (and at least `delay` s old), turning at most `turnRate` rad/s. */
   homing?: { turnRate: number; delay: number };
   onApex?: Action[];
+  /** Leave the whole flight path on screen until the next shot (for sighting shots). */
+  tracer?: boolean;
   /** Remove the projectile after its apex actions (children carry on). */
   consumeOnApex?: boolean;
   onImpact: Action[];

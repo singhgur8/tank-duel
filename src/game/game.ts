@@ -23,10 +23,12 @@ export interface Fx {
   shake(amount: number): void;
   hitStop(seconds: number): void;
   napalm(x: number, y: number): void;
+  lightning(x: number, yTop: number, yGround: number, radius: number): void;
+  quake(x: number, y: number, radius: number): void;
 }
 
 export const NullFx: Fx = {
-  explosion() {}, muzzle() {}, bounce() {}, dig() {}, dirt() {}, beam() {}, damage() {}, tankLand() {}, shake() {}, hitStop() {}, napalm() {},
+  explosion() {}, muzzle() {}, bounce() {}, dig() {}, dirt() {}, beam() {}, damage() {}, tankLand() {}, shake() {}, hitStop() {}, napalm() {}, lightning() {}, quake() {},
 };
 
 export interface PlayerSetup {
@@ -45,6 +47,8 @@ export interface GameOptions {
   maxWind?: number;
   /** Hill shape. Omit for random. */
   terrain?: TerrainStyle;
+  /** Weapon ids that may be dealt. Omit for the whole arsenal. */
+  pool?: string[];
 }
 
 export interface Player {
@@ -157,10 +161,12 @@ export class Game {
 
   /** Alternate-pick deal from shuffled copies of the arsenal, so both sides get a similar mix. */
   private dealWeapons(n: number) {
+    const allowed = this.opts.pool?.length ? new Set(this.opts.pool) : null;
+    const ids = WEAPONS.filter((w) => !allowed || allowed.has(w.id)).map((w) => w.id);
     let pool: string[] = [];
     for (let i = 0; i < n; i++) {
       for (const p of this.players) {
-        if (!pool.length) pool = this.rng.shuffle(WEAPONS.map((w) => w.id));
+        if (!pool.length) pool = this.rng.shuffle(ids.slice());
         // Avoid duplicates in one hand while possible.
         let k = pool.findIndex((id) => !p.weapons.includes(id));
         if (k < 0) k = 0;
@@ -524,12 +530,14 @@ export class Game {
                   ? Math.atan2(src.vy, src.vx)
                   : -Math.PI / 2;
         for (let i = 0; i < a.count; i++) {
-          const off = a.count > 1 ? (i / (a.count - 1) - 0.5) * a.spreadDeg * DEG : 0;
+          const k = a.count > 1 ? i / (a.count - 1) - 0.5 : 0;
+          const off = a.spacing ? 0 : k * a.spreadDeg * DEG;
           const jit = a.angleJitter ? this.rng.range(-a.angleJitter, a.angleJitter) * DEG : 0;
           const ang = base + off + jit;
           let sp = a.speed ?? pv;
           if (a.speedJitter) sp *= 1 + this.rng.range(-a.speedJitter, a.speedJitter);
-          this.spawnProjectile(a.projectile, x, y, Math.cos(ang) * sp, Math.sin(ang) * sp, owner, tankHit);
+          const sx = clamp(x + (a.spacing ? k * a.spacing * (a.count - 1) : 0), 2, WORLD_W - 3);
+          this.spawnProjectile(a.projectile, sx, y - (a.lift ?? 0), Math.cos(ang) * sp, Math.sin(ang) * sp, owner, tankHit);
         }
         return;
       }
@@ -554,10 +562,60 @@ export class Game {
         }
         this.fx.napalm(x, y);
         return;
+      case 'lightning':
+        return this.lightning(x, y, a.radius, a.damage, owner);
+      case 'quake':
+        return this.quake(x, y, a.radius, a.damage, owner);
       case 'shake':
         this.fx.shake(a.amount);
         return;
     }
+  }
+
+  private lightning(x: number, y: number, radius: number, damage: number, owner: number) {
+    const g = this.terrain.surfaceBelow(x, Math.min(y, WORLD_H - BEDROCK - 2) - 40);
+    // The strike splits the ground: a narrow, jagged channel.
+    let cx = x;
+    for (let d = 0; d < 46; d += 4) {
+      cx += this.rng.range(-3, 3);
+      this.terrain.carveCircle(cx, g + d, 5 - d * 0.06);
+    }
+    this.terrain.scorch(x, g, radius * 0.8, 0.6);
+    let total = 0;
+    this.tanks.forEach((t, i) => {
+      const dx = Math.abs(t.x - x);
+      if (dx >= radius) return;
+      const dmg = Math.max(1, Math.round(damage * Math.pow(1 - dx / radius, 0.5)));
+      total += dmg;
+      const c = tankCenter(t);
+      this.applyDamage(i, dmg, owner, c.x, c.y - 18);
+    });
+    this.fx.lightning(x, -60, g, radius);
+    if (total >= 30) this.fx.hitStop(0.18);
+  }
+
+  private quake(x: number, y: number, radius: number, damage: number, owner: number) {
+    // Cracks: short zig-zag fissures fanning out from the epicentre.
+    for (let c = 0; c < 7; c++) {
+      let px = x + this.rng.range(-radius, radius) * 0.8;
+      let py = this.terrain.surfaceBelow(px, 0) + 2;
+      for (let s = 0; s < 6; s++) {
+        this.terrain.carveCircle(px, py, 3.2);
+        px += this.rng.range(-6, 6);
+        py += this.rng.range(3, 7);
+      }
+    }
+    let total = 0;
+    this.tanks.forEach((t, i) => {
+      const dx = Math.abs(t.x - x);
+      if (dx >= radius || t.falling) return;
+      const dmg = Math.max(1, Math.round(damage * (1 - dx / radius)));
+      total += dmg;
+      const c = tankCenter(t);
+      this.applyDamage(i, dmg, owner, c.x, c.y - 18);
+    });
+    this.fx.quake(x, y, radius);
+    if (total >= 30) this.fx.hitStop(0.12);
   }
 
   private explode(x: number, y: number, radius: number, damage: number, style: ExplosionStyle, owner: number, tankHit: number) {

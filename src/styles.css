@@ -264,3 +264,26 @@ h2 { margin: 0 0 6px; }
   .hand-item { font-size: 12px; }
   .hand-item img { width: 20px; height: 20px; }
 }
+
+/* ── weapons in play ── */
+.arsenal-open { padding: 7px 12px; font-weight: 700; }
+#arsenal-count { color: var(--muted); font-size: 14px; margin-top: 4px; }
+#arsenal-count.bad { color: #ff7a7a; }
+.panel.arsenal .draft-actions { flex-wrap: wrap; justify-content: flex-end; }
+.panel.arsenal .hint { color: var(--muted); font-size: 13px; margin: 6px 0 10px; }
+#arsenal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; max-height: 58vh; overflow-y: auto; padding: 2px; margin-bottom: 12px; }
+#arsenal-grid .pcardw { cursor: pointer; transition: opacity .15s, filter .15s, border-color .15s; }
+#arsenal-grid .pcardw .left { font-weight: 800; color: var(--lcd); }
+#arsenal-grid .pcardw.off { opacity: .38; filter: grayscale(1); }
+#arsenal-grid .pcardw.off .left { color: var(--muted); }
+#arsenal-grid .pcardw:not(.off) { border-color: rgba(141,255,160,.45); box-shadow: inset 0 0 0 1px rgba(141,255,160,.15); }
+#arsenal-done { width: 100%; position: sticky; bottom: 0; }
+@media (max-width: 700px) {
+  #arsenal-grid { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); max-height: none; }
+  #arsenal-grid small { display: none; }
+  .panel.arsenal .draft-actions { justify-content: flex-start; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  #arsenal-grid { max-height: 46vh; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); }
+  #arsenal-grid small, .panel.arsenal .hint { display: none; }
+}

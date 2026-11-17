@@ -91,6 +91,7 @@ function startRound() {
     draft = runDraft({
       players: opts.players,
       perPlayer: m.settings.weapons,
+      pool: opts.pool,
       first: (m.firstPicker + m.round - 1) % 2,
       rng: new Rng(seed ^ 0xd4af7),
       onPick: () => audio.click(),
@@ -113,7 +114,7 @@ function startGame(opts: GameOptions) {
   lastTurnKey = '';
   gameOverShown = false;
   paused = false;
-  for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft']) $(id).classList.add('hidden');
+  for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft', '#arsenal']) $(id).classList.add('hidden');
   hudCache.clear();
 }
 

@@ -81,6 +81,8 @@
                 <div class="seg" data-key="weapons"><button data-v="5">5</button><button data-v="10">10</button><button data-v="15">15</button><button data-v="20">20</button></div></div>
               <div class="opt"><span>Weapon choice</span>
                 <div class="seg" data-key="selection"><button data-v="draft">Take turns picking</button><button data-v="random">Random</button></div></div>
+              <div class="opt"><span>Weapons in play</span>
+                <button class="ghost arsenal-open" id="arsenal-btn">All weapons</button></div>
             </section>
             <section>
               <h3>Battlefield</h3>
@@ -105,6 +107,26 @@
       </div>
 
       <!-- Weapon draft -->
+      <div id="arsenal" class="overlay hidden">
+        <div class="panel wide arsenal">
+          <div class="draft-head">
+            <div><h2>Weapons in play</h2><div id="arsenal-count"></div></div>
+            <div class="draft-actions">
+              <button class="ghost" data-preset="all">All on</button>
+              <button class="ghost" data-preset="none">All off</button>
+              <button class="ghost" data-preset="explosive">Explosives</button>
+              <button class="ghost" data-preset="spread">Spreads</button>
+              <button class="ghost" data-preset="special">Specials</button>
+              <button class="ghost" data-preset="nodirt">No dirt tools</button>
+              <button class="ghost" data-preset="random">Random 15</button>
+            </div>
+          </div>
+          <p class="hint">Tap a weapon to switch it on or off. Only weapons that are on can be picked or dealt.</p>
+          <div id="arsenal-grid"></div>
+          <button id="arsenal-done" class="primary">Done</button>
+        </div>
+      </div>
+
       <div id="draft" class="overlay hidden">
         <div class="panel wide draft">
           <div class="draft-head">

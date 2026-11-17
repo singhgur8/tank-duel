@@ -104,6 +104,7 @@ interface Arc {
 }
 
 interface Ribbon {
+  tracer?: boolean;
   pts: { x: number; y: number }[];
   color: string;
   width: number;
@@ -120,7 +121,14 @@ const PALETTE: Record<ExplosionStyle, { core: string; mid: string; outer: string
   fire: { core: '#fff2c0', mid: '#ff9a2e', outer: '#ff3d0a', smoke: '#2a201c', spark: '#ffb24a' },
   dirt: { core: '#e8d2a8', mid: '#a9825a', outer: '#6b4a2b', smoke: '#6e5a45', spark: '#d9b98a' },
   ice: { core: '#ffffff', mid: '#c9f6ff', outer: '#59c8ff', smoke: '#9ab8cc', spark: '#e8fdff' },
+  acid: { core: '#f4ffd6', mid: '#a6ff4d', outer: '#3fbf1f', smoke: '#2c3a22', spark: '#c8ff7a' },
 };
+
+interface Bolt {
+  pts: number[];
+  life: number;
+  max: number;
+}
 
 /** Soft round sprites, cached per colour, used for glows, fire and smoke. */
 const spriteCache = new Map<string, HTMLCanvasElement>();
@@ -165,6 +173,8 @@ export class Effects implements Fx {
   fireballs: Fireball[] = [];
   ribbons = new Map<number, Ribbon>();
   oldRibbons: Ribbon[] = [];
+  tracers: Ribbon[] = [];
+  bolts: Bolt[] = [];
   trauma = 0;
   lightScale = 1;
   flash = 0;
@@ -187,6 +197,8 @@ export class Effects implements Fx {
     this.fireballs = [];
     this.ribbons.clear();
     this.oldRibbons = [];
+    this.tracers = [];
+    this.bolts = [];
     this.trauma = this.flash = this.zoom = this.hitStopT = 0;
   }
 
@@ -411,6 +423,49 @@ export class Effects implements Fx {
     this.audio.sizzle();
   }
 
+  lightning(x: number, yTop: number, yGround: number, radius: number) {
+    // Main jagged bolt plus a few forks, drawn as layered glow lines.
+    const bolt = (x0: number, y0: number, x1: number, y1: number, jag: number, life: number) => {
+      const pts = [x0, y0];
+      const n = Math.max(4, Math.round(Math.abs(y1 - y0) / 26));
+      for (let i = 1; i < n; i++) pts.push(x0 + (x1 - x0) * (i / n) + rr(-jag, jag), y0 + (y1 - y0) * (i / n));
+      pts.push(x1, y1);
+      this.bolts.push({ pts, life, max: life });
+      return pts;
+    };
+    const main = bolt(x + rr(-60, 60), yTop, x, yGround, 22, 0.55);
+    for (let f = 0; f < 3; f++) {
+      const k = 2 * Math.floor(rr(2, main.length / 2 - 2));
+      bolt(main[k], main[k + 1], main[k] + rr(-90, 90), main[k + 1] + rr(40, 120), 12, 0.3);
+    }
+    for (let i = 0; i < 4; i++) this.arc(x, yGround, radius * rr(0.5, 1), '#bfe0ff');
+    this.lights.push({ x, y: yGround, r: radius * 3, color: '#9cc8ff', life: 0.5, max: 0.5, a: 1 });
+    this.rings.push({ x, y: yGround, r0: 4, r1: radius, life: 0.4, max: 0.4, color: '#d6ecff', width: 2 });
+    for (let i = 0; i < 26; i++) {
+      const a = -Math.PI * rr(0.1, 0.9);
+      const sp = rr(120, 420);
+      this.add({ k: K.Spark, x, y: yGround, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rr(0.3, 0.8), max: 0, s0: rr(1.2, 2.2), s1: 0.4, color: R() < 0.5 ? '#ffffff' : '#9fd0ff', drag: 1.4, grav: 520 });
+    }
+    this.flash = Math.max(this.flash, 0.55);
+    this.flashColor = '#dceeff';
+    this.addTrauma(0.45);
+    this.audio.thunder();
+  }
+
+  quake(x: number, y: number, radius: number) {
+    const t = this.game?.terrain;
+    for (let i = 0; i < 70; i++) {
+      const px = x + rr(-radius, radius);
+      const py = t ? t.surfaceBelow(px, 0) : y;
+      this.add({ k: K.Debris, x: px, y: py - 1, vx: rr(-40, 40), vy: rr(-260, -60), life: rr(0.6, 1.3), max: 0, s0: rr(1.5, 3.5), s1: 1, color: this.terrainColorAt(px, py + 4), grav: 700, drag: 0.4, vr: rr(-10, 10) });
+      if (i % 3 === 0) this.add({ k: K.Smoke, x: px, y: py - 4, vx: rr(-25, 25), vy: rr(-30, -8), life: rr(1, 2.2), max: 0, s0: 8, s1: 30, color: '#8a7058', drag: 1, grav: -6, a: 0.28, delay: rr(0, 0.4) });
+    }
+    for (let i = 0; i < 3; i++) this.rings.push({ x, y, r0: 6, r1: radius * (0.6 + i * 0.25), life: 0.6 + i * 0.15, max: 0.6 + i * 0.15, color: '#d9b98a', width: 3 - i });
+    this.addTrauma(0.9);
+    this.audio.explosion(radius * 0.8, 'dirt');
+    this.audio.thud();
+  }
+
   // ── per-frame ──
   /** `dt` is visual time (slowed during hit-stop); `realDt` is wall-clock time. */
   update(dt: number, game: Game, realDt = dt) {
@@ -429,22 +484,26 @@ export class Effects implements Fx {
       const d = p.def;
       let rb = this.ribbons.get(p.id);
       if (!rb) {
-        rb = { pts: [], color: d.glow ?? d.color, width: (d.radius ?? 3) * 0.9, life: 0, style: d.trail ?? 'smoke' };
+        rb = { pts: [], color: d.glow ?? d.color, width: (d.radius ?? 3) * 0.9, life: 0, style: d.trail ?? 'smoke', tracer: d.tracer };
+        if (d.tracer) this.tracers = [];
         this.ribbons.set(p.id, rb);
       }
       if (p.mode === 'fly') {
         rb.pts.push({ x: p.x, y: p.y });
-        if (rb.pts.length > 26) rb.pts.shift();
+        if (rb.pts.length > 26 && !rb.tracer) rb.pts.shift();
       }
       this.emitTrail(p.x, p.y, p.vx, p.vy, d.trail ?? 'smoke', d.color, p.mode);
     }
     for (const [id, rb] of this.ribbons)
       if (!alive.has(id)) {
-        rb.life = 0.35;
-        this.oldRibbons.push(rb);
+        rb.life = rb.tracer ? 14 : 0.35;
+        (rb.tracer ? this.tracers : this.oldRibbons).push(rb);
         this.ribbons.delete(id);
       }
     this.oldRibbons = this.oldRibbons.filter((r) => (r.life -= dt) > 0);
+    this.tracers = this.tracers.filter((r) => (r.life -= dt) > 0);
+    for (const b of this.bolts) b.life -= dt;
+    this.bolts = this.bolts.filter((b) => b.life > 0);
 
     // napalm flames
     for (const f of game.flames) {
@@ -582,7 +641,19 @@ export class Effects implements Fx {
         ctx.stroke();
       }
     };
-    for (const rb of this.ribbons.values()) draw(rb, 1);
+    // Tracer paths stay up as a dotted sight line.
+    const dotted = (rb: Ribbon, fade: number) => {
+      ctx.globalAlpha = 0.75 * fade;
+      ctx.strokeStyle = rb.color;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([2, 7]);
+      ctx.beginPath();
+      rb.pts.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      ctx.stroke();
+      ctx.setLineDash([]);
+    };
+    for (const rb of this.tracers) dotted(rb, Math.min(1, rb.life / 2));
+    for (const rb of this.ribbons.values()) (rb.tracer ? dotted(rb, 1) : null, draw(rb, 1));
     for (const rb of this.oldRibbons) draw(rb, rb.life / 0.35);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
@@ -637,6 +708,23 @@ export class Effects implements Fx {
       ctx.beginPath();
       ctx.arc(r.x, r.y, r.r0 + (r.r1 - r.r0) * e, 0, Math.PI * 2);
       ctx.stroke();
+    }
+    for (const b of this.bolts) {
+      const t = b.life / b.max;
+      const flick = 0.65 + 0.35 * Math.sin(this.time * 90 + b.pts[0]);
+      ctx.lineJoin = 'round';
+      // Glow adds light on dark skies; the solid core keeps the bolt crisp on bright ones.
+      for (const [w, col, a, op] of [[16, '#7fb8ff', 0.22, 'lighter'], [7, '#9cc8ff', 0.5, 'lighter'], [5, '#3a6bff', 0.55, 'source-over'], [2.4, '#ffffff', 1, 'source-over']] as const) {
+        ctx.globalCompositeOperation = op;
+        ctx.globalAlpha = a * t * flick;
+        ctx.strokeStyle = col;
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        ctx.moveTo(b.pts[0], b.pts[1]);
+        for (let i = 2; i < b.pts.length; i += 2) ctx.lineTo(b.pts[i], b.pts[i + 1]);
+        ctx.stroke();
+      }
+      ctx.globalCompositeOperation = 'lighter';
     }
     for (const a of this.arcs) {
       ctx.globalAlpha = Math.min(1, a.life * 6);
