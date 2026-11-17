@@ -30,9 +30,8 @@ Tank Duel runs as a normal app on your computer, fully offline.
 - **Windows:** run `Tank-Duel-Setup-….exe` to install it, or use `Tank-Duel-Portable-….exe` without installing.
   If SmartScreen appears, click **More info → Run anyway**.
 
-**New builds:** push a version tag (for example `git tag v0.2.0 && git push origin v0.2.0`) and the *Desktop app*
-GitHub Action builds both apps and attaches them to a new Release. You can also run the action by hand from the
-**Actions** tab and download the files from the run.
+**New builds:** every push to `main` runs the *Desktop app* GitHub Action, which builds both apps and attaches
+them to the Release for the version in `package.json`. Bump `"version"` (for example to `0.2.0`) to start a new Release.
 
 **Run the app from source** (needs [Node.js](https://nodejs.org) 20+):
 
