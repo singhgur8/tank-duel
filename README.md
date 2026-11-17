@@ -6,9 +6,14 @@ sound are made for this project.
 
 - **2 players on one device** (hot-seat), or **vs CPU** with difficulty 1 to 10 (level 10 never misses when a
   trajectory exists).
-- **43 weapons**, each with its own icon and impact behaviour: shells, spreads, splitters, cluster bombs, hail, chain gun,
-  scattergun, fireworks, airstrike, acid rain, swarm seekers, rollers, bouncers, tunnelers, pile driver, mole swarm,
-  a laser, lightning, earthquake, napalm, volcano, a tracer sighting round, and dirt/terrain tools.
+- **58 weapons**, each with its own icon and impact behaviour: shells, spreads, splitters, cluster bombs, hail, chain gun,
+  scattergun, fireworks, airstrike, acid rain, swarm seekers, chain reactions (Ripple family), rollers, bouncers,
+  a crawler, a boomerang, timed and proximity fuses, tunnelers, pile driver, mole swarm, a laser and a close-range
+  blast, lightning, earthquake, napalm, volcano, a teleporter, fling and pull blasts, a random grab bag, a 1-in-4
+  gamble, a tracer sighting round, and dirt/terrain tools (walls, domes, spires, flowing mud).
+- **Point-blank shots**: shove your barrel into the enemy and fire. Sub-munitions born inside a tank's hull can't
+  get clear before they're allowed to hit it again, so chain weapons can cascade into huge scores. It falls out of
+  the physics, not a special rule, and the blasts can catch you too.
 - **Weapons in play**: switch any weapon on or off in the lobby (with presets). Only enabled weapons can be picked or dealt.
 - **Game lobby**: take turns picking weapons (draft) or deal them at random, 5–20 weapons each, single games or best of 3/5, wind strength, terrain shape (rolling, peaks, flat, valley), scenery and CPU level.
 - **Destructible terrain** with falling dirt, tank movement (4 moves per game), wind that changes every turn,

@@ -25,7 +25,10 @@ export interface FlightCtx {
   terrain: Terrain;
   tanks: TankLike[];
   wind: number;
+  /** Tank the projectile ignores for its first `skipTime` seconds (the shooter, or the tank a sub-munition burst from). */
   owner: number;
+  /** Default 0.12 s: long enough for a shell to clear its own barrel. */
+  skipTime?: number;
 }
 
 export type FlightHit =
@@ -126,7 +129,7 @@ export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): 
   let tankT = 2,
     tankI = -1;
   for (let i = 0; i < ctx.tanks.length; i++) {
-    if (i === ctx.owner && p.age < 0.12) continue;
+    if (i === ctx.owner && p.age < (ctx.skipTime ?? 0.12)) continue;
     const c = tankCenter(ctx.tanks[i]);
     const t = segCircle(p.x, p.y, nx, ny, c.x, c.y, TANK_HIT_RADIUS);
     if (t >= 0 && t < tankT) {

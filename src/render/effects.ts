@@ -68,6 +68,7 @@ interface Popup {
   life: number;
   max: number;
   big: boolean;
+  amount: number;
 }
 
 interface Beam {
@@ -394,7 +395,16 @@ export class Effects implements Fx {
 
   damage(x: number, y: number, amount: number, color: string) {
     if (amount < 1) return;
-    this.popups.push({ x, y, text: `+${Math.round(amount)}`, color, life: 1.6, max: 1.6, big: amount >= 40 });
+    // Rapid hits on the same tank (cascades, volleys) add up into one growing number instead of a pile-up.
+    const near = this.popups.find((p) => p.color === color && p.max - p.life < 0.7 && Math.abs(p.x - x) < 50 && Math.abs(p.y - y) < 60);
+    if (near) {
+      near.amount += amount;
+      near.text = `+${Math.round(near.amount)}`;
+      near.big = near.amount >= 40;
+      near.life = near.max;
+      return;
+    }
+    this.popups.push({ x, y, text: `+${Math.round(amount)}`, color, life: 1.6, max: 1.6, big: amount >= 40, amount });
   }
 
   tankLand(x: number, y: number, speed: number) {

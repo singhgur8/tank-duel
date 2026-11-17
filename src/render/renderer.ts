@@ -324,6 +324,20 @@ export class Renderer {
       const d = p.def;
       const r = d.radius ?? 3.5;
       const y = p.mode === 'roll' ? p.y - r : p.y;
+      if (d.fuse !== undefined) {
+        // Countdown above a fused grenade, blinking faster as it runs out.
+        const left = Math.max(0, d.fuse - p.age);
+        const blink = Math.sin(this.fx.time * (8 + (d.fuse - left) * 6)) > 0;
+        ctx.save();
+        ctx.font = '800 15px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.lineWidth = 4;
+        ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+        ctx.strokeText(left.toFixed(1), p.x, y - 14);
+        ctx.fillStyle = left < 1 && blink ? '#ff5a5a' : '#ffffff';
+        ctx.fillText(left.toFixed(1), p.x, y - 14);
+        ctx.restore();
+      }
       ctx.globalCompositeOperation = 'lighter';
       const glow = d.glow ?? d.color;
       const grd = ctx.createRadialGradient(p.x, y, 0, p.x, y, r * 4);

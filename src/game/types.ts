@@ -41,6 +41,16 @@ export type Action =
   | { type: 'lightning'; radius: number; damage: number }
   /** Ground shock: damages tanks standing on the ground within `radius`, cracks the terrain and shakes hard. */
   | { type: 'quake'; radius: number; damage: number }
+  /** Move the shooter's tank to this spot. */
+  | { type: 'teleport' }
+  /** Shove tanks within `radius` away from the point (negative `strength` pulls them in). No damage. */
+  | { type: 'push'; radius: number; strength: number }
+  /** Build a hollow arch of dirt over the point. */
+  | { type: 'dome'; radius: number; thickness: number }
+  /** Gamble: `hit` runs with probability `chance`, otherwise `miss`. */
+  | { type: 'lottery'; chance: number; hit: Action[]; miss: Action[] }
+  /** Run one of the option lists, chosen at random. */
+  | { type: 'random'; options: Action[][] }
   /** Extra camera shake. */
   | { type: 'shake'; amount: number };
 
@@ -66,6 +76,14 @@ export interface ProjectileDef {
   /** Steer toward the nearest enemy once past the top of the arc (and at least `delay` s old), turning at most `turnRate` rad/s. */
   homing?: { turnRate: number; delay: number };
   onApex?: Action[];
+  /** Go off this many seconds after launch, wherever it is (bouncing, rolling or resting). */
+  fuse?: number;
+  /** Go off in flight when this close to an enemy tank (px). */
+  proximity?: number;
+  /** After landing, drive along the ground at `speed` px/s for up to `time` s, climbing hills; blows up on contact. */
+  crawl?: { speed: number; time: number };
+  /** Horizontal pull back toward the shooter (px/s²): the shot curves back like a boomerang. */
+  pull?: number;
   /** Leave the whole flight path on screen until the next shot (for sighting shots). */
   tracer?: boolean;
   /** Remove the projectile after its apex actions (children carry on). */

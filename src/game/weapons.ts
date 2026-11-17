@@ -34,6 +34,27 @@ const hopper = (depth: number): ProjectileDef => ({
         ],
 });
 
+/**
+ * A blast that throws out `kids` slow hops, each of which blasts and throws out its own, `depth` times over,
+ * so the explosions ripple outward. The hops are slow: if they start inside a tank (a point-blank shot) they
+ * can't get clear before they are allowed to hit it, and the whole cascade goes off inside its hull.
+ */
+const ripple = (depth: number, radius: number, damage: number, kids: number, color: string): ProjectileDef => ({
+  radius: 2.5 + depth * 0.6,
+  color,
+  glow: color,
+  trail: 'spark',
+  onImpact: [
+    boom(radius, damage, depth > 1 ? 'standard' : 'small'),
+    ...(depth > 0
+      ? [{ type: 'spawn', count: kids, spreadDeg: 110, direction: 'up', speed: 150, speedJitter: 0.3, angleJitter: 10, projectile: ripple(depth - 1, radius * 0.9, Math.max(4, Math.round(damage * 0.9)), kids, color) } as Action]
+      : []),
+  ],
+});
+
+/** A blob of mud that rolls to low ground and drops its dirt there. */
+const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 4 }, onImpact: [{ type: 'dirt', radius: 17 }] };
+
 export const WEAPONS: WeaponDef[] = [
   // ── Explosives ──────────────────────────────────────────────
   {
@@ -232,6 +253,25 @@ export const WEAPONS: WeaponDef[] = [
     ai: { value: 7 },
   },
 
+  {
+    id: 'ripple', name: 'Ripple', category: 'spread',
+    description: 'Each blast kicks out two more, which kick out two more. Point-blank, it can go off again and again inside a tank.',
+    projectile: ripple(2, 30, 14, 2, '#ffd36b'),
+    ai: { value: 6 },
+  },
+  {
+    id: 'big-ripple', name: 'Big Ripple', category: 'spread',
+    description: 'A longer chain of rippling blasts that spreads across the ground.',
+    projectile: ripple(3, 34, 15, 2, '#ffb347'),
+    ai: { value: 7 },
+  },
+  {
+    id: 'ripple-storm', name: 'Ripple Storm', category: 'spread',
+    description: 'Every blast throws out three more, four generations deep. Devastating if it starts inside the enemy.',
+    projectile: ripple(3, 30, 13, 3, '#ff7a3d'),
+    ai: { value: 9 },
+  },
+
   // ── Special movement ────────────────────────────────────────
   {
     id: 'roller', name: 'Roller', category: 'special',
@@ -319,6 +359,83 @@ export const WEAPONS: WeaponDef[] = [
     ai: { value: 0 },
   },
 
+  {
+    id: 'fuse-grenade', name: 'Fuse Grenade', category: 'special',
+    description: 'Bounces and rolls around, then goes off exactly 3.5 seconds after launch.',
+    projectile: { radius: 4.5, color: '#9bd17a', glow: '#6fbf4a', trail: 'spark', bounces: 12, restitution: 0.5, friction: 0.25, fuse: 3.5, onImpact: [boom(58, 48, 'big')] },
+    ai: { value: 4 },
+  },
+  {
+    id: 'prox-shell', name: 'Proximity Shell', category: 'special',
+    description: 'Bursts in mid-air as soon as it passes close to an enemy tank.',
+    projectile: { radius: 4, color: '#ffe36b', glow: '#ffc400', trail: 'smoke', proximity: 48, onImpact: [boom(46, 36)] },
+    ai: { value: 7 },
+  },
+  {
+    id: 'crawler', name: 'Crawler', category: 'special',
+    description: 'Lands and drives on along the ground for up to five seconds, climbing hills, and blows up on contact.',
+    projectile: { radius: 5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 5 }, onImpact: [boom(50, 40)] },
+    ai: { value: 5 },
+  },
+  {
+    id: 'boomerang', name: 'Boomerang', category: 'special',
+    description: 'Curves back toward you in flight. Lob it past the enemy and let it come home. Can hit you too.',
+    projectile: { radius: 4.5, color: '#ffcf6b', glow: '#ff9f1a', trail: 'spark', pull: 190, windScale: 0.5, onImpact: [boom(44, 36)] },
+    ai: { value: 3 },
+  },
+  {
+    id: 'breaker', name: 'Breaker', category: 'special',
+    description: 'A short, wide blast straight out of the barrel. Smashes through dirt and anything right in front of you.',
+    beam: { length: 170, width: 20, damage: 42, color: '#ffb347' },
+    ai: { value: 4 },
+  },
+  {
+    id: 'warp-shell', name: 'Warp Shell', category: 'utility',
+    description: 'Teleports your tank to wherever the shell lands.',
+    projectile: { radius: 4, color: '#c7a8ff', glow: '#9a6bff', trail: 'plasma', onImpact: [{ type: 'teleport' }] },
+    ai: { value: 0 },
+  },
+  {
+    id: 'gust', name: 'Gust Bomb', category: 'special',
+    description: 'A blast of air that flings tanks away. Little damage, but it can toss them into craters.',
+    projectile: { radius: 5, color: '#e6f4ff', glow: '#9fd8ff', trail: 'ice', onImpact: [boom(20, 6, 'ice'), { type: 'push', radius: 150, strength: 420 }, { type: 'shake', amount: 0.4 }] },
+    ai: { value: 3 },
+  },
+  {
+    id: 'vortex', name: 'Vortex', category: 'special',
+    description: 'Sucks nearby tanks in toward the impact, then pops.',
+    projectile: { radius: 5, color: '#b388ff', glow: '#7c4dff', trail: 'plasma', onImpact: [{ type: 'push', radius: 260, strength: -260 }, boom(34, 22, 'plasma')] },
+    ai: { value: 4 },
+  },
+  {
+    id: 'lucky-dip', name: 'Lucky Dip', category: 'special',
+    description: 'Nobody knows what is inside: a big blast, fire, a dirt dump, bomblets, lightning, or a damp squib.',
+    projectile: {
+      radius: 5, color: '#ff8ad8', glow: '#ffd36b', trail: 'spark',
+      onImpact: [{
+        type: 'random',
+        options: [
+          [boom(85, 60, 'big'), { type: 'shake', amount: 0.5 }],
+          [boom(20, 6, 'fire'), { type: 'napalm', count: 12, duration: 3.6, dps: 9, spread: 120 }],
+          [{ type: 'dirt', radius: 70 }],
+          [boom(30, 14), { type: 'spawn', count: 8, spreadDeg: 120, direction: 'up', speed: 300, speedJitter: 0.35, angleJitter: 8, projectile: bomblet(24, 10) }],
+          [{ type: 'lightning', radius: 50, damage: 50 }],
+          [boom(10, 2, 'small')],
+        ],
+      }],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'long-shot', name: 'Long Shot', category: 'explosive',
+    description: 'One time in four it is the biggest blast in the game. The rest of the time it fizzles.',
+    projectile: {
+      radius: 5, color: '#fff3a0', glow: '#ffd400', trail: 'spark',
+      onImpact: [{ type: 'lottery', chance: 0.25, hit: [boom(150, 100, 'nuke')], miss: [boom(12, 3, 'small')] }],
+    },
+    ai: { value: 4 },
+  },
+
   // ── Fire ────────────────────────────────────────────────────
   {
     id: 'napalm', name: 'Napalm', category: 'special',
@@ -381,6 +498,21 @@ export const WEAPONS: WeaponDef[] = [
     id: 'spire', name: 'Spire', category: 'utility',
     description: 'Raises a tall, narrow pillar of rock. Blocks low shots.',
     projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 54, height: 230 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'dome', name: 'Bunker Dome', category: 'utility',
+    description: 'Builds a hollow arch of dirt over the landing spot. Shelter yourself or box in the enemy.',
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'dome', radius: 62, thickness: 12 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'mudslide', name: 'Mudslide', category: 'utility',
+    description: 'Bursts into blobs of mud that roll downhill and fill the low ground.',
+    projectile: {
+      radius: 5, color: '#8b6440', trail: 'dirt',
+      onImpact: [{ type: 'dirt', radius: 14 }, { type: 'spawn', count: 9, spreadDeg: 140, direction: 'up', speed: 190, speedJitter: 0.4, angleJitter: 6, projectile: mudBlob }],
+    },
     ai: { value: 1 },
   },
 ];

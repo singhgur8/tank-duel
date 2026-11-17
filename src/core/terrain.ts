@@ -193,7 +193,8 @@ export class Terrain {
   }
 
   /** Add dirt in a circle. */
-  fillCircle(cx: number, cy: number, r: number): number {
+  /** `wake` lets unsupported dirt fall; domes pass false so the arch stands. */
+  fillCircle(cx: number, cy: number, r: number, wake = true): number {
     const { w, h, mask } = this;
     let added = 0;
     const x0 = Math.max(0, Math.floor(cx - r));
@@ -216,7 +217,7 @@ export class Terrain {
     }
     if (added) {
       this.markDirty(cx - r - 1, cy - r - 4, cx + r + 1, cy + r + 4);
-      this.wake(x0, x1);
+      if (wake) this.wake(x0, x1);
     }
     return added;
   }

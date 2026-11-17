@@ -684,7 +684,221 @@ const DRAW: Record<string, (c: Ctx, w: WeaponDef) => void> = {
     c.lineTo(30, 14);
     c.stroke();
   },
+  ripple: (c) => rippleIcon(c, 2, '#ffd36b'),
+  'big-ripple': (c) => rippleIcon(c, 3, '#ffb347'),
+  'ripple-storm': (c) => rippleIcon(c, 4, '#ff7a3d'),
+  'fuse-grenade': (c) => {
+    ball(c, 30, 38, 16, '#c8f0a8', '#3f7a2a');
+    c.strokeStyle = 'rgba(0,0,0,0.35)';
+    c.lineWidth = 1.5;
+    for (const y of [30, 38, 46]) {
+      c.beginPath();
+      c.moveTo(16, y);
+      c.lineTo(44, y);
+      c.stroke();
+    }
+    c.fillStyle = '#6b7078';
+    c.fillRect(25, 18, 10, 6);
+    c.strokeStyle = '#d9c08a';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(30, 18);
+    c.quadraticCurveTo(36, 8, 46, 10);
+    c.stroke();
+    glow(c, 47, 10, 9, '#ffd36b', 1);
+    ball(c, 47, 10, 2.5, '#ffffff', '#ffb347');
+  },
+  'prox-shell': (c) => {
+    c.strokeStyle = 'rgba(255,228,107,0.8)';
+    c.lineWidth = 2;
+    c.setLineDash([3, 4]);
+    c.beginPath();
+    c.arc(34, 30, 24, 0, TAU);
+    c.stroke();
+    c.setLineDash([]);
+    glow(c, 34, 30, 16, '#ffc400', 0.7);
+    shell(c, 34, 30, 30, UP_RIGHT, '#ffc400');
+  },
+  crawler: (c) => {
+    ground(c, 46);
+    c.fillStyle = '#9aa1a8';
+    c.beginPath();
+    c.moveTo(14, 44);
+    c.lineTo(18, 32);
+    c.lineTo(42, 32);
+    c.quadraticCurveTo(52, 34, 52, 44);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#2b2f35';
+    for (const x of [20, 30, 40, 48]) {
+      c.beginPath();
+      c.arc(x, 45, 3.5, 0, TAU);
+      c.fill();
+    }
+    glow(c, 50, 36, 8, '#ff5a5a', 1);
+    c.strokeStyle = 'rgba(255,255,255,0.6)';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(2, 36);
+    c.lineTo(10, 36);
+    c.moveTo(4, 42);
+    c.lineTo(11, 42);
+    c.stroke();
+  },
+  boomerang: (c) => {
+    dashedArc(c, [[10, 54], [40, -10], [54, 30], [62, 54], [26, 44]], '#ffcf6b');
+    c.save();
+    c.translate(28, 30);
+    c.rotate(-0.5);
+    c.fillStyle = '#ff9f1a';
+    c.beginPath();
+    c.moveTo(-14, 6);
+    c.quadraticCurveTo(0, -14, 14, 6);
+    c.quadraticCurveTo(0, -4, -14, 6);
+    c.fill();
+    c.restore();
+  },
+  breaker: (c) => {
+    c.fillStyle = '#4a4f57';
+    c.fillRect(4, 26, 16, 12);
+    const g = c.createLinearGradient(20, 0, 60, 0);
+    g.addColorStop(0, 'rgba(255,240,200,1)');
+    g.addColorStop(1, 'rgba(255,120,30,0)');
+    c.fillStyle = g;
+    c.beginPath();
+    c.moveTo(20, 28);
+    c.lineTo(60, 14);
+    c.lineTo(60, 50);
+    c.lineTo(20, 36);
+    c.closePath();
+    c.fill();
+    for (const [x, y] of [[50, 10], [56, 54], [44, 52]] as const) ball(c, x, y, 3, '#c9996a', '#5a3a20');
+  },
+  'warp-shell': (c) => {
+    for (const [x, y] of [[16, 46], [48, 18]] as const) {
+      glow(c, x, y, 16, '#9a6bff', 0.9);
+      c.strokeStyle = '#d8c8ff';
+      c.lineWidth = 2;
+      c.beginPath();
+      c.ellipse(x, y, 12, 5, 0, 0, TAU);
+      c.stroke();
+    }
+    c.strokeStyle = 'rgba(199,168,255,0.8)';
+    c.setLineDash([3, 4]);
+    c.lineWidth = 2;
+    c.beginPath();
+    c.moveTo(16, 40);
+    c.quadraticCurveTo(20, 14, 44, 18);
+    c.stroke();
+    c.setLineDash([]);
+    c.fillStyle = '#c9ced4';
+    c.fillRect(42, 10, 12, 6);
+  },
+  gust: (c) => {
+    c.strokeStyle = '#cfeaff';
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    for (const [y, l] of [[20, 40], [32, 50], [44, 34]] as const) {
+      c.beginPath();
+      c.moveTo(6, y);
+      c.lineTo(6 + l, y);
+      c.arc(6 + l, y - 6, 6, Math.PI / 2, -Math.PI / 2, true);
+      c.stroke();
+    }
+    ball(c, 52, 50, 5, '#ffffff', '#6fbfff');
+  },
+  vortex: (c) => {
+    glow(c, 32, 32, 30, '#7c4dff', 0.8);
+    c.strokeStyle = '#d8c8ff';
+    c.lineWidth = 2.5;
+    c.beginPath();
+    for (let k = 0; k < 120; k++) {
+      const a = k * 0.16;
+      const r = 26 - k * 0.2;
+      c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r);
+    }
+    c.stroke();
+  },
+  'lucky-dip': (c) => {
+    c.fillStyle = '#ff8ad8';
+    c.beginPath();
+    c.moveTo(12, 26);
+    c.lineTo(52, 26);
+    c.lineTo(46, 58);
+    c.lineTo(18, 58);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#ffd36b';
+    c.fillRect(10, 22, 44, 6);
+    c.fillStyle = '#ffffff';
+    c.font = '900 26px system-ui, sans-serif';
+    c.textAlign = 'center';
+    c.fillText('?', 32, 52);
+    starburst(c, 24, 14, 9, 6, '#fff3a0', 'rgba(255,180,40,0.9)');
+    ball(c, 42, 12, 5, '#c8f0a8', '#3f7a2a');
+  },
+  'long-shot': (c) => {
+    c.fillStyle = '#2b2f35';
+    c.beginPath();
+    c.arc(32, 34, 24, 0, TAU);
+    c.fill();
+    c.fillStyle = '#ffd400';
+    c.beginPath();
+    c.moveTo(32, 34);
+    c.arc(32, 34, 24, -Math.PI / 2, 0);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#ffffff';
+    c.font = '900 16px system-ui, sans-serif';
+    c.textAlign = 'center';
+    c.fillText('1:4', 32, 40);
+    glow(c, 44, 20, 12, '#fff36a', 0.8);
+  },
+  dome: (c) => {
+    ground(c, 50);
+    c.strokeStyle = '#9a6a3e';
+    c.lineWidth = 8;
+    c.beginPath();
+    c.arc(32, 50, 22, Math.PI, 0);
+    c.stroke();
+    c.strokeStyle = '#d8a46a';
+    c.lineWidth = 2;
+    c.beginPath();
+    c.arc(32, 50, 26, Math.PI, 0);
+    c.stroke();
+    c.fillStyle = '#38c6ff';
+    c.fillRect(25, 42, 14, 7);
+  },
+  mudslide: (c) => {
+    ground(c, 48);
+    c.fillStyle = '#6b4a2b';
+    c.beginPath();
+    c.moveTo(4, 20);
+    c.quadraticCurveTo(26, 22, 36, 40);
+    c.quadraticCurveTo(44, 50, 60, 48);
+    c.lineTo(60, 50);
+    c.lineTo(4, 50);
+    c.closePath();
+    c.fill();
+    for (const [x, y] of [[16, 18], [28, 28], [40, 38], [52, 44]] as const) ball(c, x, y, 4, '#b8865a', '#5a3a20');
+  },
 };
+
+function rippleIcon(c: Ctx, rings: number, color: string) {
+  glow(c, 32, 40, 28, color, 0.5);
+  c.strokeStyle = color;
+  c.lineWidth = 2;
+  for (let k = 0; k < rings; k++) {
+    c.globalAlpha = 1 - k * 0.18;
+    c.beginPath();
+    c.arc(32, 46, 8 + k * 7, Math.PI, 0);
+    c.stroke();
+  }
+  c.globalAlpha = 1;
+  const pts: [number, number][] = [[32, 40]];
+  for (let k = 1; k < rings; k++) pts.push([32 - k * 9, 44 - k * 4], [32 + k * 9, 44 - k * 4]);
+  for (const [x, y] of pts) starburst(c, x, y, 7, 6, '#fff3a0', 'rgba(255,90,20,0.9)');
+}
 
 const cache = new Map<string, string>();
 

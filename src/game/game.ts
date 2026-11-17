@@ -206,7 +206,10 @@ export class Game {
   }
 
   flightCtx(owner: number, skip = owner): FlightCtx {
-    return { terrain: this.terrain, tanks: this.tanks, wind: this.wind, owner: skip };
+    // Sub-munitions that burst from a tank they hit ignore it only very briefly: if they are born deep inside
+    // its hull (a point-blank shot) they can't get out in time and hit it again. That is where the occasional
+    // monster point-blank result comes from.
+    return { terrain: this.terrain, tanks: this.tanks, wind: this.wind, owner: skip, skipTime: skip === owner ? 0.12 : 0.04 };
   }
 
   // ── Commands (the only way input changes the game; ready for networking) ──
@@ -383,6 +386,20 @@ export class Game {
   }
 
   private stepProjectile(p: Projectile) {
+    const d0 = p.def;
+    if (d0.fuse !== undefined && p.age >= d0.fuse) return this.impact(p, p.x, p.mode === 'roll' ? p.y - 3 : p.y, -1);
+    if (p.mode === 'fly') {
+      if (d0.pull && p.age > 0.3) {
+        const home = this.tanks[p.owner];
+        p.vx += Math.sign(home.x - p.x) * d0.pull * DT;
+      }
+      if (d0.proximity && p.age > 0.25)
+        for (let i = 0; i < this.tanks.length; i++) {
+          if (i === p.owner) continue;
+          const c = tankCenter(this.tanks[i]);
+          if (Math.hypot(c.x - p.x, c.y - p.y) < d0.proximity) return this.impact(p, p.x, p.y, -1);
+        }
+    }
     if (p.mode === 'roll') return this.stepRoll(p);
     if (p.mode === 'burrow') return this.stepBurrow(p);
     const vyPrev = p.vy;
@@ -421,10 +438,13 @@ export class Game {
       p.y = hit.ay + n.ny;
       this.fx.bounce(p.x, p.y, d.glow ?? d.color);
       if (d.onBounce) this.runActions(d.onBounce, p.x, p.y, p, -1);
-      if (Math.hypot(p.vx, p.vy) < 60) this.impact(p, p.x, p.y, -1);
+      if (Math.hypot(p.vx, p.vy) < 60) {
+        if (d.roll || d.fuse !== undefined) this.enterRoll(p, p.x, p.y);
+        else this.impact(p, p.x, p.y, -1);
+      }
       return;
     }
-    if (d.roll) return this.enterRoll(p, hit.ax, hit.ay);
+    if (d.roll || d.crawl || d.fuse !== undefined) return this.enterRoll(p, hit.ax, hit.ay);
     if (d.burrow) {
       const sp = Math.hypot(p.vx, p.vy) || 1;
       p.mode = 'burrow';
@@ -457,6 +477,7 @@ export class Game {
     p.y = this.groundNear(x, y);
     const sl = (this.groundNear(x + 4, p.y) - this.groundNear(x - 4, p.y)) / 8;
     p.rollV = Math.abs(p.vx) > 20 ? p.vx * 0.65 : Math.sign(sl || 1) * 40;
+    if (p.def.crawl) p.bdx = Math.sign(p.vx || p.rollV || 1); // drive on in the direction it was flying
     this.fx.bounce(p.x, p.y, p.def.glow ?? p.def.color);
   }
 
@@ -467,8 +488,12 @@ export class Game {
     const gl = this.groundNear(p.x - 3, p.y),
       gr = this.groundNear(p.x + 3, p.y);
     const sl = (gr - gl) / 6;
-    p.rollV += (GRAVITY * sl) / Math.sqrt(1 + sl * sl) * dt * 0.9;
-    p.rollV *= 1 - 0.5 * dt;
+    const crawl = p.def.crawl;
+    if (crawl) p.rollV = p.bdx * crawl.speed;
+    else {
+      p.rollV += (GRAVITY * sl) / Math.sqrt(1 + sl * sl) * dt * 0.9;
+      p.rollV *= 1 - 0.5 * dt;
+    }
     const nx = p.x + p.rollV * dt;
     if (nx < 0 || nx >= WORLD_W) {
       p.dead = true;
@@ -483,10 +508,16 @@ export class Game {
     const t = this.terrain;
     let ny: number;
     if (t.solid(nx, p.y)) {
-      const maxClimb = 2 + Math.abs(nx - p.x) * 2.5;
+      const maxClimb = 2 + Math.abs(nx - p.x) * (crawl ? 6 : 2.5);
       let k = 1;
       while (k <= maxClimb && t.solid(nx, p.y - k)) k++;
-      if (k > maxClimb) return this.impact(p, p.x, p.y - 3, -1); // wall
+      if (k > maxClimb) {
+        if (p.def.fuse !== undefined) {
+          p.rollV *= -0.4; // a fused grenade bounces off the wall and keeps ticking
+          return;
+        }
+        return this.impact(p, p.x, p.y - 3, -1); // wall
+      }
       ny = p.y - k + 1;
     } else {
       let k = 1;
@@ -504,6 +535,14 @@ export class Game {
     }
     p.x = nx;
     p.y = ny;
+    if (p.def.fuse !== undefined) {
+      if (Math.abs(p.rollV) < 4) p.rollV = 0; // rests until the fuse runs out
+      return;
+    }
+    if (crawl) {
+      if (p.rollTime > crawl.time) this.impact(p, p.x, p.y - 3, -1);
+      return;
+    }
     if ((Math.abs(p.rollV) < 8 && p.rollTime > 0.5) || p.rollTime > (p.def.roll?.maxTime ?? 6)) this.impact(p, p.x, p.y - 3, -1);
   }
 
@@ -589,6 +628,36 @@ export class Game {
         return this.lightning(x, y, a.radius, a.damage, owner);
       case 'quake':
         return this.quake(x, y, a.radius, a.damage, owner);
+      case 'teleport': {
+        const t = this.tanks[owner];
+        const from = tankCenter(t);
+        t.x = clamp(x, TANK_HALF_WIDTH + 2, WORLD_W - TANK_HALF_WIDTH - 2);
+        t.y = Math.max(PIVOT_HEIGHT + 2, Math.min(y, this.terrain.surfaceBelow(t.x, Math.max(0, y - 30))) - 2);
+        t.vx = t.vy = 0;
+        t.falling = true;
+        t.fallStart = t.y;
+        t.moveLeft = 0;
+        t.bobV += 120;
+        this.fx.explosion(from.x, from.y, 26, 'plasma', 0);
+        this.fx.explosion(t.x, t.y - 12, 30, 'plasma', 0);
+        return;
+      }
+      case 'push':
+        return this.knockback(x, y, a.radius, a.strength);
+      case 'dome': {
+        const g = this.terrain.surfaceBelow(x, Math.max(0, y - 20));
+        for (let k = 0; k <= 60; k++) {
+          const ang = Math.PI + (k / 60) * Math.PI;
+          this.terrain.fillCircle(x + Math.cos(ang) * a.radius, g + 4 + Math.sin(ang) * a.radius, a.thickness / 2, false);
+        }
+        this.fx.dirt(x, g - a.radius, a.radius * 0.6);
+        this.fx.shake(0.25);
+        return;
+      }
+      case 'lottery':
+        return this.runActions(this.rng.next() < a.chance ? a.hit : a.miss, x, y, src, tankHit);
+      case 'random':
+        return this.runActions(this.rng.pick(a.options), x, y, src, tankHit);
       case 'shake':
         this.fx.shake(a.amount);
         return;
@@ -663,16 +732,28 @@ export class Game {
    * Blast push: tanks near an explosion are thrown up and away from it, then bounce and slide to rest.
    * Strength grows with blast size and closeness but is capped, so a tank is shoved tens of px, not across the map.
    */
-  private knockback(x: number, y: number, radius: number) {
+  private knockback(x: number, y: number, radius: number, strength?: number) {
     for (const t of this.tanks) {
       const c = tankCenter(t);
       const dx = c.x - x,
         dy = c.y - y;
       const d = Math.hypot(dx, dy);
-      const reach = radius * 1.4 + TANK_HIT_RADIUS;
+      const reach = strength === undefined ? radius * 1.4 + TANK_HIT_RADIUS : radius;
       if (d >= reach) continue;
       const f = 1 - d / reach;
-      const sp = Math.min(240, (40 + radius * 1.5) * f);
+      if (strength !== undefined && strength < 0) {
+        // Pull: drag toward the point along the ground, with a small hop to unstick it.
+        t.vx += Math.sign(-dx) * Math.min(Math.abs(dx) * 2.2, -strength * (0.4 + 0.6 * f));
+        if (!t.falling) {
+          t.falling = true;
+          t.fallStart = t.y;
+          t.vy = 0;
+        }
+        t.vy = Math.min(t.vy, 0) - 90 * f;
+        t.pitchV -= Math.sign(dx) * 4 * f;
+        continue;
+      }
+      const sp = strength === undefined ? Math.min(240, (40 + radius * 1.5) * f) : strength * (0.3 + 0.7 * f);
       const side = Math.abs(dx) < 2 ? 0 : Math.sign(dx);
       // Mostly upward (the blast lifts the hull), partly sideways.
       t.vx += side * sp * (0.5 + 0.4 * Math.min(1, Math.abs(dx) / (d + 1)));
