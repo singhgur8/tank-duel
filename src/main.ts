@@ -56,7 +56,7 @@ const lobby = initLobby(
   },
 );
 function syncMenu() {
-  $('#mute-btn').textContent = audio.muted ? '🔇' : '🔊';
+  $('#mute-btn').classList.toggle('muted', audio.muted);
 }
 syncMenu();
 
@@ -164,12 +164,6 @@ document.querySelectorAll<HTMLButtonElement>('#controls .step').forEach((b) => {
   });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
 });
-
-const angleIn = $<HTMLInputElement>('#angle');
-const powerIn = $<HTMLInputElement>('#power');
-// The slider runs left→right, the barrel angle runs right→left, so flip it.
-angleIn.addEventListener('input', () => game && send({ t: 'aim', angle: 180 - Number(angleIn.value), power: game.player.power }));
-powerIn.addEventListener('input', () => game && send({ t: 'aim', angle: game.player.angle, power: Number(powerIn.value) }));
 
 function fire() {
   audio.unlock();
@@ -351,7 +345,7 @@ function updateHud() {
   const p = g.player;
   const wpn = g.currentWeapon;
   setText('#weapon-name', wpn ? wpn.name : 'No weapons');
-  setText('#weapon-count', `${p.weapons.length ? p.selected + 1 : 0}/${p.weapons.length}`);
+  setText('#weapon-count', p.weapons.length ? `${p.selected + 1} of ${p.weapons.length}` : '');
   const icon = $<HTMLImageElement>('#weapon-icon');
   const src = wpn ? weaponIcon(wpn) : '';
   if (icon.dataset.k !== (wpn?.id ?? '')) {
@@ -361,14 +355,7 @@ function updateHud() {
   }
   setText('#angle-val', `${Math.round(p.angle * 10) / 10}°`);
   setText('#power-val', `${Math.round(p.power)}`);
-  setText('#moves-left', `(${p.moves})`);
-  const [alo, ahi] = g.angleRange();
-  if (angleIn.min !== String(180 - ahi)) {
-    angleIn.min = String(180 - ahi);
-    angleIn.max = String(180 - alo);
-  }
-  if (document.activeElement !== angleIn) angleIn.value = String(180 - p.angle);
-  if (document.activeElement !== powerIn) powerIn.value = String(p.power);
+  setText('#moves-left', `${p.moves}`);
   $('#controls').classList.toggle('disabled', !human());
   $('#cpu-thinking').classList.toggle('hidden', !(g.phase === 'aim' && g.player.cpuLevel));
 

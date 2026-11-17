@@ -16,52 +16,44 @@
         <canvas id="game"></canvas>
 
         <div id="hud-top">
-          <div class="pcard" id="p0card"><div class="pname"></div><div class="pscore">0</div><div class="pmeta"></div></div>
+          <div class="plate" id="p0card"><div class="pname"></div><div class="lcd pscore">0</div><div class="pmeta"></div></div>
           <div id="center-hud">
-            <div id="wind"><span class="wlabel">WIND</span><div id="wind-bar"><div id="wind-fill"></div><div id="wind-mid"></div></div><span id="wind-val">0</span></div>
+            <div id="wind"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17h6"/></svg><span class="wlabel">WIND</span><div id="wind-bar"><div id="wind-fill"></div><div id="wind-mid"></div></div><span class="lcd" id="wind-val">0</span></div>
             <div id="turn-info"></div>
           </div>
-          <div class="pcard right" id="p1card"><div class="pname"></div><div class="pscore">0</div><div class="pmeta"></div></div>
+          <div class="plate right" id="p1card"><div class="pname"></div><div class="lcd pscore">0</div><div class="pmeta"></div></div>
         </div>
 
         <div id="banner"></div>
         <div id="cpu-thinking" class="hidden">CPU is aiming…</div>
-        <button id="pause-btn" class="icon-btn" aria-label="Menu">❚❚</button>
-        <button id="mute-btn" class="icon-btn" aria-label="Sound">🔊</button>
+        <button id="pause-btn" class="icon-btn" aria-label="Menu"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></button>
+        <button id="mute-btn" class="icon-btn" aria-label="Sound"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg></button>
       </div>
 
-      <div id="controls">
-        <div class="ctrl weapon">
-          <button class="step" data-act="wprev" aria-label="Previous weapon">‹</button>
-          <button id="weapon-btn"><img id="weapon-icon" alt="" /><span id="weapon-name">Shell</span><span id="weapon-count"></span></button>
-          <button class="step" data-act="wnext" aria-label="Next weapon">›</button>
-        </div>
-        <div class="ctrl">
-          <label>Angle</label>
+      <div id="controls" class="console">
+        <div class="bay weapon">
+          <div class="baylabel">Weapon</div>
           <div class="row">
-            <button class="step" data-act="a+" data-hold aria-label="Angle left">‹</button>
-            <input type="range" id="angle" min="0" max="180" step="1" />
-            <button class="step" data-act="a-" data-hold aria-label="Angle right">›</button>
-            <span class="val" id="angle-val">45°</span>
+            <button class="step" data-act="wprev" aria-label="Previous weapon">◀</button>
+            <button id="weapon-btn" aria-label="Choose weapon"><img id="weapon-icon" alt="" /><span class="wtexts"><span id="weapon-name">Shell</span><span id="weapon-count"></span></span></button>
+            <button class="step" data-act="wnext" aria-label="Next weapon">▶</button>
           </div>
         </div>
-        <div class="ctrl">
-          <label>Power</label>
-          <div class="row">
-            <button class="step" data-act="p-" data-hold aria-label="Less power">−</button>
-            <input type="range" id="power" min="5" max="100" step="1" />
-            <button class="step" data-act="p+" data-hold aria-label="More power">+</button>
-            <span class="val" id="power-val">60</span>
+        <button id="fire-btn"><span>FIRE</span></button>
+        <div class="bay dials">
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 20 17.5 7.5"/><path d="M11 20a7 7 0 0 0-2-4.9"/><circle cx="18.5" cy="6.5" r="1.6" fill="currentColor"/></svg>Angle</div>
+            <div class="row"><button class="step" data-act="a+" data-hold aria-label="Angle left">◀</button><span class="lcd" id="angle-val">45°</span><button class="step" data-act="a-" data-hold aria-label="Angle right">▶</button></div>
+          </div>
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="15" width="3" height="5" rx=".6" fill="currentColor"/><rect x="8" y="11" width="3" height="9" rx=".6" fill="currentColor"/><rect x="13" y="7" width="3" height="13" rx=".6" fill="currentColor"/><rect x="18" y="3" width="3" height="17" rx=".6" fill="currentColor" opacity=".45"/></svg>Power</div>
+            <div class="row"><button class="step" data-act="p-" data-hold aria-label="Less power">−</button><span class="lcd" id="power-val">60</span><button class="step" data-act="p+" data-hold aria-label="More power">+</button></div>
+          </div>
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="12" width="14" height="6" rx="3"/><circle cx="8.5" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="15.5" cy="15" r="1" fill="currentColor"/><path d="M8 12l1.5-3h5L16 12"/><path d="M1.5 6.5h4M3.5 4.5l-2 2 2 2M22.5 6.5h-4M20.5 4.5l2 2-2 2"/></svg>Move</div>
+            <div class="row"><button class="step" data-act="mleft" aria-label="Move left">◀</button><span class="lcd short" id="moves-left">4</span><button class="step" data-act="mright" aria-label="Move right">▶</button></div>
           </div>
         </div>
-        <div class="ctrl move">
-          <label>Move <span id="moves-left"></span></label>
-          <div class="row">
-            <button class="step" data-act="mleft" aria-label="Move left">◀</button>
-            <button class="step" data-act="mright" aria-label="Move right">▶</button>
-          </div>
-        </div>
-        <button id="fire-btn">FIRE</button>
       </div>
 
       <!-- Lobby -->
