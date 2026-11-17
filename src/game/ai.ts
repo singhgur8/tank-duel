@@ -143,9 +143,8 @@ export function planTurn(game: Game, owner: number, level: number, rng: Rng): Pl
   if (w.beam) {
     const p = game.pivot(owner);
     const c = tankCenter(game.tanks[1 - owner]);
-    angle = Math.atan2(-(c.y - p.y), c.x - p.x) / DEG;
-    if (angle < 0) angle += 360;
-    if (angle > 180) angle = angle > 270 ? 0 : 180;
+    angle = Math.atan2(-(c.y - p.y), c.x - p.x) / DEG; // -180..180
+    if (angle < -90) angle += 360; // keep it continuous for targets down-left (e.g. 200°)
     power = game.players[owner].power;
     miss = 0;
   } else {
@@ -154,12 +153,15 @@ export function planTurn(game: Game, owner: number, level: number, rng: Rng): Pl
     power = s.power;
     miss = s.miss;
   }
-  const err = (10 - level) / 9; // 1 at level 1, 0 at level 10
+  // Error falls off on a curve: level 1 sprays, level 5 is a coin flip, 8-9 rarely miss, 10 never does.
+  const err = Math.pow((10 - level) / 9, 2);
   if (err > 0) {
-    angle += rng.gauss() * err * 7;
-    power += rng.gauss() * err * 11;
+    angle += rng.gauss() * err * 6;
+    power += rng.gauss() * err * 9;
   }
-  return { weaponIndex, angle: clamp(angle, 0, 180), power: clamp(power, 5, 100), miss };
+  const lo = w.beam ? -60 : 0,
+    hi = w.beam ? 240 : 180;
+  return { weaponIndex, angle: clamp(angle, lo, hi), power: clamp(power, 5, 100), miss };
 }
 
 /** Drives the CPU's turn: think, swing the turret into place, fire. */

@@ -13,6 +13,8 @@ export interface Theme {
   dirt: RGB; // colour of added dirt
   cloud: string;
   fog: string;
+  /** Bright skies: additive glows are toned down so blasts don't wash out to white. */
+  bright?: boolean;
 }
 
 const hex = (h: string): RGB => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
@@ -32,7 +34,7 @@ export const THEMES: Theme[] = [
     sun: { color: '#ffffff', x: 0.25, y: 0.3, r: 40 },
     mountains: ['#8fb6d6', '#6a92b8', '#4a6f96'],
     top: hex('#e9f5ff'), deep: hex('#4b6c95'), edge: hex('#ffffff'), dirt: hex('#b9cfe6'),
-    cloud: 'rgba(255,255,255,0.55)', fog: 'rgba(214,241,255,0.2)',
+    cloud: 'rgba(255,255,255,0.55)', fog: 'rgba(214,241,255,0.2)', bright: true,
   },
   {
     id: 'verdant', name: 'Verdant Hills',
@@ -40,7 +42,7 @@ export const THEMES: Theme[] = [
     sun: { color: '#fff3c0', x: 0.82, y: 0.25, r: 46 },
     mountains: ['#5d8f8a', '#3f6e5e', '#2a4f3b'],
     top: hex('#5b9a37'), deep: hex('#3a2817'), edge: hex('#b5ec5c'), dirt: hex('#6b4a2b'),
-    cloud: 'rgba(255,255,255,0.6)', fog: 'rgba(243,231,176,0.18)',
+    cloud: 'rgba(255,255,255,0.6)', fog: 'rgba(243,231,176,0.18)', bright: true,
   },
   {
     id: 'night', name: 'Neon Night',

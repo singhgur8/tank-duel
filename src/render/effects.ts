@@ -81,6 +81,22 @@ interface Beam {
   max: number;
 }
 
+interface Fireball {
+  x: number;
+  y: number;
+  r: number;
+  life: number;
+  max: number;
+  core: string;
+  mid: string;
+  outer: string;
+}
+
+const shade = (hex: string, k: number) => {
+  const n = (i: number) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k));
+  return `rgb(${n(1)},${n(3)},${n(5)})`;
+};
+
 interface Arc {
   pts: number[];
   life: number;
@@ -146,9 +162,11 @@ export class Effects implements Fx {
   popups: Popup[] = [];
   beams: Beam[] = [];
   arcs: Arc[] = [];
+  fireballs: Fireball[] = [];
   ribbons = new Map<number, Ribbon>();
   oldRibbons: Ribbon[] = [];
   trauma = 0;
+  lightScale = 1;
   flash = 0;
   flashColor = '#ffffff';
   zoom = 0;
@@ -166,6 +184,7 @@ export class Effects implements Fx {
     this.popups = [];
     this.beams = [];
     this.arcs = [];
+    this.fireballs = [];
     this.ribbons.clear();
     this.oldRibbons = [];
     this.trauma = this.flash = this.zoom = this.hitStopT = 0;
@@ -177,7 +196,7 @@ export class Effects implements Fx {
   }
 
   private add(p: Partial<Particle> & { k: K; x: number; y: number }) {
-    if (this.particles.length > 4000) return;
+    if (this.particles.length > 2600) return;
     this.particles.push({
       vx: 0, vy: 0, life: 1, max: 1, s0: 4, s1: 4, color: '#fff', drag: 0, grav: 0, rot: R() * 6.28, vr: 0, a: 1, delay: 0,
       ...p,
@@ -212,16 +231,18 @@ export class Effects implements Fx {
     this.rings.push({ x, y, r0: s * 0.3, r1: s * (big ? 3.2 : 1.9), life: big ? 0.9 : 0.42, max: big ? 0.9 : 0.42, color: P.core, width: big ? 10 : 4 });
     if (s > 40) this.rings.push({ x, y, r0: s * 0.2, r1: s * 1.3, life: 0.6, max: 0.6, color: P.outer, width: 2 });
 
-    // fireball
-    const nFire = Math.round(6 + s * (style === 'fire' ? 0.5 : 0.28));
+    // one solid fireball core that swells and fades, so the blast reads as a single mass
+    if (style !== 'dirt') this.fireballs.push({ x, y, r: s * (big ? 1.1 : 0.95), life: big ? 0.7 : 0.32, max: big ? 0.7 : 0.32, core: P.core, mid: P.mid, outer: P.outer });
+    // licks of flame around it
+    const nFire = Math.round(8 + s * (style === 'fire' ? 0.6 : 0.4));
     if (style !== 'dirt')
       for (let i = 0; i < nFire; i++) {
         const a = R() * Math.PI * 2,
-          d = R() * s * 0.45,
-          sp = rr(20, 90) * (s / 50);
+          d = Math.sqrt(R()) * s * 0.35,
+          sp = rr(30, 110) * (s / 50);
         this.add({
           k: K.Fire, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 20,
-          life: rr(0.35, 0.8) * (big ? 2 : 1), max: 0, s0: s * rr(0.45, 0.85), s1: s * 0.15, color: i % 3 === 0 ? P.core : i % 3 === 1 ? P.mid : P.outer,
+          life: rr(0.3, 0.7) * (big ? 2 : 1), max: 0, s0: s * rr(0.3, 0.55), s1: s * 0.1, color: i % 3 === 0 ? P.core : i % 3 === 1 ? P.mid : P.outer,
           drag: 2.5, grav: -50,
         });
       }
@@ -240,17 +261,19 @@ export class Effects implements Fx {
       this.add({ k: K.Debris, x: x + rr(-s, s) * 0.3, y: y + rr(-s, s) * 0.3, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, life: rr(1, 2.2), max: 0, s0: rr(1.5, 4.5), s1: 1, color: style === 'ice' ? '#e6fbff' : debrisCols[i % 4], drag: 0.4, grav: 700, vr: rr(-12, 12) });
     }
     // smoke that lingers after the fire
-    const nSmoke = Math.round(5 + s * 0.22);
+    const nSmoke = Math.round(8 + s * 0.3);
+    const tints = [P.smoke, shade(P.smoke, 1.35), shade(P.smoke, 1.7)];
     for (let i = 0; i < nSmoke; i++) {
       const a = R() * Math.PI * 2,
-        d = R() * s * 0.6;
-      this.add({ k: K.Smoke, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d, vx: rr(-20, 20), vy: rr(-40, -10), life: rr(1.2, 2.6) * (big ? 1.8 : 1), max: 0, s0: s * 0.3, s1: s * rr(0.9, 1.4), color: P.smoke, drag: 0.8, grav: -15, a: style === 'dirt' ? 0.55 : 0.45, delay: rr(0.05, 0.25) });
+        d = Math.sqrt(R()) * s * 0.8,
+        out = rr(20, 70) * (s / 60);
+      this.add({ k: K.Smoke, x: x + Math.cos(a) * d, y: y + Math.sin(a) * d * 0.7, vx: Math.cos(a) * out, vy: Math.sin(a) * out * 0.5 - rr(15, 50), life: rr(1.2, 2.8) * (big ? 1.8 : 1), max: 0, s0: s * rr(0.15, 0.3), s1: s * rr(0.55, 1.0), color: tints[i % 3], drag: 1.1, grav: -18, a: style === 'dirt' ? 0.5 : rr(0.25, 0.42), delay: rr(0.08, 0.3) });
     }
     if (style === 'plasma') for (let i = 0; i < 5; i++) this.arc(x, y, s * rr(0.8, 1.6), P.mid);
     if (style === 'ice') this.rings.push({ x, y, r0: 2, r1: s * 1.1, life: 0.7, max: 0.7, color: '#bff3ff', width: 2 });
     if (big) this.mushroom(x, y, s, P);
 
-    this.trauma = Math.min(1, this.trauma + (big ? 1 : Math.min(0.75, 0.12 + s / 110)));
+    this.addTrauma(big ? 1 : Math.min(0.75, 0.1 + s / 120));
     this.zoom = Math.max(this.zoom, big ? 0.06 : s > 60 ? 0.025 : 0.01);
     if (big) {
       this.flash = 1;
@@ -304,7 +327,7 @@ export class Effects implements Fx {
         sp = rr(30, 120);
       this.add({ k: K.Smoke, x, y, vx: Math.cos(aa) * sp, vy: Math.sin(aa) * sp, life: rr(0.6, 1.2), max: 0, s0: 4, s1: rr(14, 22), color: '#8a8580', drag: 2.5, grav: -20, a: 0.35 });
     }
-    this.trauma = Math.min(1, this.trauma + 0.08 + power / 1500);
+    this.addTrauma(0.08 + power / 1500);
     if (w.beam) this.audio.laser();
     else this.audio.fire(power);
   }
@@ -339,7 +362,7 @@ export class Effects implements Fx {
     }
     for (let i = 0; i < 8; i++)
       this.add({ k: K.Smoke, x: x + rr(-radius, radius), y: y + rr(-radius, radius) * 0.5, vx: rr(-20, 20), vy: rr(-25, -5), life: rr(1, 2), max: 0, s0: radius * 0.3, s1: radius * 0.8, color: '#8a7058', drag: 1, grav: -5, a: 0.3 });
-    this.trauma = Math.min(1, this.trauma + 0.2);
+    this.addTrauma(0.2);
     this.audio.dirt();
   }
 
@@ -354,7 +377,7 @@ export class Effects implements Fx {
       if (this.game?.terrain.solid(x, y + width + 2) && R() < 0.5)
         this.add({ k: K.Spark, x, y, vx: rr(-150, 150), vy: rr(-260, -60), life: rr(0.2, 0.6), max: 0, s0: 1.6, s1: 0.4, color: '#ffd0f8', drag: 1, grav: 600 });
     }
-    this.trauma = Math.min(1, this.trauma + 0.35);
+    this.addTrauma(0.35);
   }
 
   damage(x: number, y: number, amount: number, color: string) {
@@ -366,12 +389,17 @@ export class Effects implements Fx {
     const s = Math.min(1, speed / 500);
     for (let i = 0; i < 10; i++)
       this.add({ k: K.Smoke, x: x + rr(-18, 18), y: y - 2, vx: rr(-60, 60), vy: rr(-20, -5), life: rr(0.5, 1), max: 0, s0: 4, s1: 16, color: '#8a7a6a', drag: 2, grav: -10, a: 0.35 });
-    this.trauma = Math.min(1, this.trauma + 0.1 + s * 0.25);
+    this.addTrauma(0.1 + s * 0.25);
     this.audio.thud();
   }
 
   shake(amount: number) {
-    this.trauma = Math.min(1, this.trauma + amount);
+    this.addTrauma(amount);
+  }
+
+  /** Overlapping blasts raise shake toward the biggest one instead of stacking without limit. */
+  private addTrauma(a: number) {
+    this.trauma = Math.min(1, Math.max(this.trauma, a) + a * 0.15);
   }
 
   hitStop(seconds: number) {
@@ -384,9 +412,11 @@ export class Effects implements Fx {
   }
 
   // ── per-frame ──
-  update(dt: number, game: Game) {
+  /** `dt` is visual time (slowed during hit-stop); `realDt` is wall-clock time. */
+  update(dt: number, game: Game, realDt = dt) {
     this.time += dt;
-    this.hitStopT = Math.max(0, this.hitStopT - dt);
+    this.hitStopT = Math.max(0, this.hitStopT - realDt);
+    this.lightScale = game.theme.bright ? 0.45 : 1;
     this.trauma = Math.max(0, this.trauma - dt * 1.5);
     this.flash = Math.max(0, this.flash - dt * 2.2);
     this.zoom = Math.max(0, this.zoom - dt * 0.12);
@@ -472,6 +502,8 @@ export class Effects implements Fx {
     this.popups = this.popups.filter((p) => p.life > 0);
     for (const b of this.beams) b.life -= dt;
     this.beams = this.beams.filter((b) => b.life > 0);
+    for (const f of this.fireballs) f.life -= dt;
+    this.fireballs = this.fireballs.filter((f) => f.life > 0);
     for (const a of this.arcs) a.life -= dt;
     this.arcs = this.arcs.filter((a) => a.life > 0);
   }
@@ -560,8 +592,23 @@ export class Effects implements Fx {
     ctx.globalCompositeOperation = 'lighter';
     for (const l of this.lights) {
       const t = l.life / l.max;
-      ctx.globalAlpha = l.a * t * t * 0.6;
+      ctx.globalAlpha = l.a * t * t * 0.6 * this.lightScale;
       ctx.drawImage(soft(l.color), l.x - l.r, l.y - l.r, l.r * 2, l.r * 2);
+    }
+    for (const f of this.fireballs) {
+      const t = 1 - f.life / f.max;
+      const grow = 1 - (1 - t) * (1 - t);
+      const r = f.r * (0.45 + 0.75 * grow);
+      const g = ctx.createRadialGradient(f.x, f.y, 0, f.x, f.y, r);
+      g.addColorStop(0, f.core);
+      g.addColorStop(0.35 + 0.3 * t, f.mid);
+      g.addColorStop(0.8, f.outer);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.globalAlpha = (1 - t) * (1 - t) * this.lightScale + (1 - t) * 0.25;
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(f.x, f.y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
     for (const p of this.particles) {
       if (p.delay > 0) continue;

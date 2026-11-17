@@ -1,5 +1,5 @@
 import {
-  BEDROCK, DT, GRAVITY, MAX_CLIMB_PER_PX, MAX_WIND, MOVE_DISTANCE, MOVE_SPEED, MOVES_PER_GAME,
+  ANGLE_MAX, ANGLE_MIN, BEAM_ANGLE_MAX, BEAM_ANGLE_MIN, BEDROCK, DT, MAX_BURN_DPS, GRAVITY, MAX_CLIMB_PER_PX, MAX_WIND, MOVE_DISTANCE, MOVE_SPEED, MOVES_PER_GAME,
   PIVOT_HEIGHT, TANK_HALF_WIDTH, TANK_HIT_RADIUS, TURN_SETTLE_DELAY, WORLD_H, WORLD_W,
 } from '../config';
 import { Rng, clamp, DEG } from '../core/rng';
@@ -63,6 +63,7 @@ export interface Tank {
   hitFlash: number;
   moveLeft: number;
   moveDir: number;
+  moveStartX: number;
   burnAcc: number;
   burnTimer: number;
   recoil: number;
@@ -141,7 +142,7 @@ export class Game {
   }
 
   private makeTank(x: number): Tank {
-    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, burnAcc: 0, burnTimer: 0, recoil: 0 };
+    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, moveStartX: x, burnAcc: 0, burnTimer: 0, recoil: 0 };
     t.y = this.groundUnder(x, 0);
     t.tilt = this.tiltAt(t);
     return t;
@@ -187,12 +188,13 @@ export class Game {
     const p = this.player;
     switch (cmd.t) {
       case 'aim':
-        p.angle = clamp(cmd.angle, 0, 180);
+        p.angle = this.clampAngle(cmd.angle);
         p.power = clamp(cmd.power, 5, 100);
         return true;
       case 'weapon':
         if (cmd.index < 0 || cmd.index >= p.weapons.length) return false;
         p.selected = cmd.index;
+        p.angle = this.clampAngle(p.angle);
         return true;
       case 'move': {
         if (p.moves <= 0) return false;
@@ -200,12 +202,23 @@ export class Game {
         p.moves--;
         t.moveDir = cmd.dir;
         t.moveLeft = MOVE_DISTANCE;
+        t.moveStartX = t.x;
         this.phase = 'moving';
         return true;
       }
       case 'fire':
         return this.fire();
     }
+  }
+
+  /** Allowed barrel angle for the current weapon (beams can point downward). */
+  angleRange(): [number, number] {
+    return this.currentWeapon?.beam ? [BEAM_ANGLE_MIN, BEAM_ANGLE_MAX] : [ANGLE_MIN, ANGLE_MAX];
+  }
+
+  clampAngle(a: number) {
+    const [lo, hi] = this.angleRange();
+    return clamp(a, lo, hi);
   }
 
   private fire(): boolean {
@@ -215,18 +228,20 @@ export class Game {
     p.weapons.splice(p.selected, 1);
     p.selected = clamp(p.selected, 0, Math.max(0, p.weapons.length - 1));
     this.lastWeapon = w;
+    const fireAngle = p.angle;
+    p.angle = this.clampAngle(p.angle);
     this.phase = 'flight';
     this.quiet = 0;
     const tank = this.tanks[this.current];
     tank.recoil = 1;
     if (w.beam) {
-      this.fireBeam(w, p.angle);
+      this.fireBeam(w, fireAngle);
       return true;
     }
     const v = w.volley ?? { count: 1, spreadDeg: 0 };
     for (let i = 0; i < v.count; i++) {
       const off = v.count > 1 ? (i / (v.count - 1) - 0.5) * v.spreadDeg : 0;
-      this.pendingShots.push({ t: (v.delay ?? 0) * i, angle: p.angle + off, power: p.power, weapon: w });
+      this.pendingShots.push({ t: (v.delay ?? 0) * i, angle: fireAngle + off, power: p.power, weapon: w });
     }
     this.flushShots(0);
     return true;
@@ -486,7 +501,15 @@ export class Game {
       case 'spawn': {
         const pv = src ? Math.hypot(src.vx, src.vy) : 200;
         const base =
-          a.direction === 'up' ? -Math.PI / 2 : a.direction === 'down' ? Math.PI / 2 : src ? Math.atan2(src.vy, src.vx) : -Math.PI / 2;
+          a.direction === 'up'
+            ? -Math.PI / 2
+            : a.direction === 'down'
+              ? Math.PI / 2
+              : a.direction === 'forward'
+                ? (src && src.vx < 0 ? -Math.PI * 0.64 : -Math.PI * 0.36)
+                : src
+                  ? Math.atan2(src.vy, src.vx)
+                  : -Math.PI / 2;
         for (let i = 0; i < a.count; i++) {
           const off = a.count > 1 ? (i / (a.count - 1) - 0.5) * a.spreadDeg * DEG : 0;
           const jit = a.angleJitter ? this.rng.range(-a.angleJitter, a.angleJitter) * DEG : 0;
@@ -514,7 +537,7 @@ export class Game {
         for (let i = 0; i < a.count; i++) {
           const fx = clamp(x + (a.count > 1 ? (i / (a.count - 1) - 0.5) * a.spread : 0) + this.rng.range(-6, 6), 1, WORLD_W - 2);
           const life = a.duration * this.rng.range(0.75, 1);
-          this.flames.push({ x: fx, y: this.groundNear(fx, y - 10, 60, 120), v: this.rng.range(-25, 25), life, maxLife: life, dps: a.dps, owner });
+          this.flames.push({ x: fx, y: this.groundNear(fx, y - 10, 60, 120), v: this.rng.range(-70, 70), life, maxLife: life, dps: a.dps, owner });
         }
         this.fx.napalm(x, y);
         return;
@@ -557,7 +580,7 @@ export class Game {
         gr = this.groundNear(f.x + 3, f.y);
       const sl = (gr - gl) / 6;
       f.v += sl * 260 * dt;
-      f.v *= 1 - 1.6 * dt;
+      f.v *= 1 - 0.9 * dt;
       f.v = clamp(f.v, -110, 110);
       const nx = clamp(f.x + f.v * dt, 1, WORLD_W - 2);
       const ny = this.groundNear(nx, f.y, 4, 60);
@@ -577,7 +600,7 @@ export class Game {
     burn.forEach((b, i) => {
       const t = this.tanks[i];
       if (b.dps > 0) {
-        const amt = Math.min(b.dps, 24) * dt;
+        const amt = Math.min(b.dps, MAX_BURN_DPS) * dt;
         t.burnAcc += amt;
         t.burnTimer += dt;
         this.applyDamage(i, amt, b.owner, 0, 0, false);
@@ -619,8 +642,10 @@ export class Game {
       const nx = clamp(t.x + t.moveDir * step, TANK_HALF_WIDTH + 2, WORLD_W - TANK_HALF_WIDTH - 2);
       const ng = this.groundUnder(nx, t.y - 14);
       const rise = t.y - ng;
-      if (nx === t.x || rise > MAX_CLIMB_PER_PX * step + 0.6) {
+      // pixel terrain rises in whole-pixel steps, so always allow a small step up
+      if (nx === t.x || rise > Math.max(2.5, MAX_CLIMB_PER_PX * step + 0.6)) {
         t.moveLeft = 0; // blocked
+        if (Math.abs(t.x - t.moveStartX) < 2) this.players[i].moves++; // didn't really move: refund
       } else {
         t.x = nx;
         if (ng <= t.y) t.y = ng;
@@ -638,7 +663,8 @@ export class Game {
       t.y = Math.min(t.y + t.vy * dt, g);
       if (t.y >= g) this.land(t);
     } else {
-      if (g < t.y) t.y = g; // dirt pushed up under the treads
+      // Small bumps under the treads lift the tank; dirt dumped on top of it buries it instead.
+      if (g < t.y && t.y - g <= 4 && !this.terrain.solid(t.x, t.y - PIVOT_HEIGHT - 4)) t.y = g;
       if (t.falling) this.land(t);
     }
     t.tilt += (this.tiltAt(t) - t.tilt) * Math.min(1, dt * 10);

@@ -30,7 +30,7 @@ const hopper = (depth: number): ProjectileDef => ({
       ? [boom(38, 22, 'plasma')]
       : [
           boom(26, 14, 'plasma'),
-          { type: 'spawn', count: 1, spreadDeg: 0, direction: 'up', speed: 330, angleJitter: 0, projectile: hopper(depth - 1) },
+          { type: 'spawn', count: 1, spreadDeg: 0, direction: 'forward', speed: 330, angleJitter: 4, projectile: hopper(depth - 1) },
         ],
 });
 
@@ -171,7 +171,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'seeker', name: 'Seeker', category: 'special',
     description: 'Locks on to the enemy after its peak and steers in.',
-    projectile: { radius: 4, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 1.6, delay: 0.6 }, onImpact: [boom(40, 35)] },
+    projectile: { radius: 4, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 2.2, delay: 0.4 }, onImpact: [boom(40, 35)] },
     ai: { value: 7 },
   },
   {
@@ -197,13 +197,13 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'napalm', name: 'Napalm', category: 'special',
     description: 'Sticky fire that flows downhill and burns anything it touches.',
-    projectile: { radius: 4.5, color: '#ff8a3d', glow: '#ff5a1a', trail: 'fire', onImpact: [boom(18, 6, 'fire'), { type: 'napalm', count: 9, duration: 3.6, dps: 14, spread: 70 }] },
+    projectile: { radius: 4.5, color: '#ff8a3d', glow: '#ff5a1a', trail: 'fire', onImpact: [boom(18, 6, 'fire'), { type: 'napalm', count: 12, duration: 3.6, dps: 9, spread: 110 }] },
     ai: { value: 6 },
   },
   {
     id: 'inferno', name: 'Inferno', category: 'special',
     description: 'A huge napalm spill.',
-    projectile: { radius: 6, color: '#ff6a2a', glow: '#ff3a0a', trail: 'fire', onImpact: [boom(26, 10, 'fire'), { type: 'napalm', count: 16, duration: 4.5, dps: 16, spread: 130 }] },
+    projectile: { radius: 6, color: '#ff6a2a', glow: '#ff3a0a', trail: 'fire', onImpact: [boom(26, 10, 'fire'), { type: 'napalm', count: 20, duration: 4.5, dps: 10, spread: 190 }] },
     ai: { value: 8 },
   },
 

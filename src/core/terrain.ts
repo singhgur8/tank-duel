@@ -86,7 +86,7 @@ export class Terrain {
         s += heights[k];
         n++;
       }
-      smooth[x] = Math.min(heights[x] + 40, s / n);
+      smooth[x] = s / n;
     }
     for (let x = 0; x < w; x++) {
       const top = Math.round(heights[x]);
@@ -95,7 +95,8 @@ export class Terrain {
       for (let y = top; y < h; y++) {
         const i = y * w + x;
         t.mask[i] = 1;
-        const d = y - Math.min(top, ref);
+        // blend the local and the smoothed skyline: peaks keep a lit top, valleys don't streak
+        const d = Math.max(0, y - (top * 0.35 + ref * 0.65));
         const k = clamp(d / 300, 0, 1);
         const kk = k * k * (3 - 2 * k);
         const band = 1 + 0.07 * Math.sin((y + sx) * 0.11) + 0.04 * Math.sin((y - sx) * 0.031);

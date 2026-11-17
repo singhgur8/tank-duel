@@ -128,13 +128,45 @@ h2 { margin: 0 0 6px; }
   .modes { grid-template-columns: 1fr 1fr; }
   .modes .disabled { display: none; }
 }
+/* Phone landscape: one compact row, values kept visible next to the sliders. */
 @media (max-height: 520px) and (orientation: landscape) {
-  #controls { flex-wrap: nowrap; }
-  .ctrl.weapon { flex-basis: auto; flex: 1.2; }
-  #weapon-btn { height: 34px; }
-  .ctrl .val { display: none; }
+  #controls { flex-wrap: nowrap; gap: 5px; padding: 4px 6px; }
+  .ctrl { padding: 3px 6px; gap: 2px; }
+  .ctrl label { display: none; }
+  .ctrl.weapon { flex-basis: auto; flex: 1.1; }
+  #weapon-btn { height: 32px; padding: 0 8px; }
+  #weapon-count { display: none; }
+  .ctrl .row { gap: 4px; }
+  .ctrl .val { min-width: 34px; font-size: 13px; }
+  .step { min-width: 28px; height: 30px; }
+  input[type=range] { min-width: 30px; }
+  #fire-btn { min-width: 76px; font-size: 16px; }
+  #hud-top { top: 4px; }
+  .pcard .pname { font-size: 12px; }
+  .icon-btn { top: 46px; width: 30px; height: 30px; }
+  #mute-btn { left: 42px; }
+  /* compact menu so Start fits without scrolling */
+  .panel { padding: 14px 18px; }
+  h1 { font-size: 34px; }
+  .tag, .keys { display: none; }
+  .modes { margin-bottom: 8px; gap: 6px; }
+  .mode { padding: 8px 10px; }
+  .field-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .field-grid input:not([type=range]), .field-grid select { padding: 6px 8px; }
+  .primary { padding: 10px; }
+  .menu-foot { margin-top: 6px; }
+}
+/* Phone portrait: stack the controls in a two-column grid so every button keeps its own spot. */
+@media (orientation: portrait) and (max-width: 700px) {
+  #controls { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 8px; }
+  .ctrl, .ctrl.weapon { grid-column: span 2; min-width: 0; }
+  .ctrl.move { grid-column: 1; }
+  .ctrl:not(.weapon):not(.move) { flex: none; }
+  .ctrl .val { min-width: 46px; font-size: 14px; }
+  .step { min-width: 40px; height: 38px; }
+  #fire-btn { grid-column: 2; min-height: 58px; font-size: 22px; }
+  #stage::after { content: 'Turn your phone sideways for a bigger battlefield'; position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); font-size: 12px; color: var(--muted); white-space: nowrap; pointer-events: none; }
 }
 @media (max-width: 520px) {
   .field-grid { grid-template-columns: 1fr; }
-  .ctrl .val { min-width: 34px; font-size: 13px; }
 }

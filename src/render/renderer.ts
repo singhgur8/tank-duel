@@ -42,6 +42,8 @@ export class Renderer {
     this.scale = Math.min(r.width / WORLD_W, r.height / WORLD_H);
     this.ox = (r.width - WORLD_W * this.scale) / 2;
     this.oy = (r.height - WORLD_H * this.scale) / 2;
+    // tall screens: sit the battlefield just above the controls, leaving the sky on top for the HUD
+    if (r.height > r.width) this.oy = Math.max(this.oy, r.height - WORLD_H * this.scale - 34);
   }
 
   /** Screen (CSS px relative to canvas) to world coordinates. */
@@ -387,26 +389,55 @@ export class Renderer {
     }
   }
 
-  /** Arrow markers for shells that are above the top of the screen. */
+  /** Markers for shells above the top of the screen: drawn below the HUD, shrinking as the shell climbs. */
   private drawOffscreen(ctx: CanvasRenderingContext2D) {
     for (const p of this.game.projectiles) {
       if (p.y >= -4) continue;
       const h = Math.round(-p.y);
+      const k = Math.max(0.55, 1 - h / 1600);
       ctx.save();
-      ctx.translate(Math.max(14, Math.min(WORLD_W - 14, p.x)), 10);
+      ctx.translate(Math.max(20, Math.min(WORLD_W - 20, p.x)), 140);
+      ctx.scale(k * 1.6, k * 1.6);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.5;
+      ctx.drawImage(this.markerGlow(p.def.glow ?? p.def.color), -16, -12, 32, 32);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
       ctx.fillStyle = p.def.glow ?? p.def.color;
+      ctx.strokeStyle = 'rgba(0,0,0,0.6)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.moveTo(0, -4);
-      ctx.lineTo(-8, 10);
-      ctx.lineTo(8, 10);
+      ctx.moveTo(0, -6);
+      ctx.lineTo(-9, 9);
+      ctx.lineTo(9, 9);
       ctx.closePath();
+      ctx.stroke();
       ctx.fill();
-      ctx.font = '600 12px system-ui, sans-serif';
+      ctx.font = '700 11px system-ui, sans-serif';
       ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeText(`${h}`, 0, 24);
       ctx.fillStyle = '#fff';
-      ctx.fillText(`${h}`, 0, 26);
+      ctx.fillText(`${h}`, 0, 24);
       ctx.restore();
     }
+  }
+
+  private glowCache = new Map<string, HTMLCanvasElement>();
+  private markerGlow(color: string) {
+    let c = this.glowCache.get(color);
+    if (!c) {
+      c = document.createElement('canvas');
+      c.width = c.height = 32;
+      const g = c.getContext('2d')!;
+      const grd = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+      grd.addColorStop(0, color);
+      grd.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = grd;
+      g.fillRect(0, 0, 32, 32);
+      this.glowCache.set(color, c);
+    }
+    return c;
   }
 }
 

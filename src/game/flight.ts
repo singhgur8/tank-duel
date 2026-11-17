@@ -51,7 +51,7 @@ export function marchTerrain(t: Terrain, x0: number, y0: number, x1: number, y1:
   const dx = x1 - x0,
     dy = y1 - y0;
   const len = Math.hypot(dx, dy);
-  const n = Math.max(1, Math.ceil(len / 1.25));
+  const n = Math.max(1, Math.ceil(len / 0.7));
   let ax = x0,
     ay = y0;
   for (let i = 1; i <= n; i++) {
@@ -100,7 +100,7 @@ export function nearestEnemy(ctx: FlightCtx, x: number, y: number) {
 /** Advance one fixed step. Mutates p. Returns a hit, or null if still flying. */
 export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): FlightHit | null {
   const dt = DT;
-  if (def.homing && p.age >= def.homing.delay) {
+  if (def.homing && p.age >= def.homing.delay && p.vy > 0) {
     const e = nearestEnemy(ctx, p.x, p.y);
     if (e >= 0) {
       const c = tankCenter(ctx.tanks[e]);

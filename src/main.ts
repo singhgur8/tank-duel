@@ -184,13 +184,27 @@ function aimAt(e: PointerEvent) {
   const dx = w.x - pv.x,
     dy = pv.y - w.y;
   let ang = (Math.atan2(dy, dx) * 180) / Math.PI;
-  if (ang < -90) ang = 180;
-  else if (ang < 0) ang = 0;
+  if (ang < -90) ang += 360; // game clamps to the weapon's allowed range
   const power = clamp((Math.hypot(dx, dy) - 30) / 2.6, 5, 100);
   send({ t: 'aim', angle: Math.round(ang * 10) / 10, power: Math.round(power) });
 }
 
-const held = new Set<string>();
+// Held arrow keys repeat at a fixed rate (deg or power per second), Shift for fine control.
+const held = new Map<string, number>(); // action -> seconds held
+let shiftDown = false;
+const HOLD_DELAY = 0.25;
+function applyHeld(dt: number) {
+  for (const [k, t] of held) {
+    const nt = t + dt;
+    held.set(k, nt);
+    if (nt < HOLD_DELAY) continue;
+    const rate = (shiftDown ? 4 : 28) * Math.min(1, (nt - HOLD_DELAY) * 3 + 0.4) * dt;
+    if (k === 'a+') nudge(rate, 0);
+    else if (k === 'a-') nudge(-rate, 0);
+    else if (k === 'p+') nudge(0, rate);
+    else if (k === 'p-') nudge(0, -rate);
+  }
+}
 window.addEventListener('keydown', (e) => {
   if ((e.target as HTMLElement).tagName === 'INPUT' && (e.target as HTMLInputElement).type !== 'range') return;
   if (e.key === 'Escape') return togglePause();
@@ -200,11 +214,16 @@ window.addEventListener('keydown', (e) => {
     return;
   }
   const fine = e.shiftKey;
+  shiftDown = e.shiftKey;
+  const arrow: Record<string, string> = { ArrowLeft: 'a+', ArrowRight: 'a-', ArrowUp: 'p+', ArrowDown: 'p-' };
+  if (arrow[e.key]) {
+    e.preventDefault();
+    if (e.repeat) return; // our own repeat handles holding
+    held.set(arrow[e.key], 0);
+    act(arrow[e.key], fine);
+    return;
+  }
   switch (e.key) {
-    case 'ArrowLeft': held.add('a+'); act('a+', fine); break;
-    case 'ArrowRight': held.add('a-'); act('a-', fine); break;
-    case 'ArrowUp': held.add('p+'); act('p+', fine); break;
-    case 'ArrowDown': held.add('p-'); act('p-', fine); break;
     case 'a': case 'A': act('mleft'); break;
     case 'd': case 'D': act('mright'); break;
     case 'q': case 'Q': case '[': act('wprev'); break;
@@ -219,6 +238,7 @@ window.addEventListener('keydown', (e) => {
 window.addEventListener('keyup', (e) => {
   const map: Record<string, string> = { ArrowLeft: 'a+', ArrowRight: 'a-', ArrowUp: 'p+', ArrowDown: 'p-' };
   if (map[e.key]) held.delete(map[e.key]);
+  shiftDown = e.shiftKey;
 });
 
 // weapon picker
@@ -319,6 +339,11 @@ function updateHud() {
   setText('#angle-val', `${Math.round(p.angle * 10) / 10}°`);
   setText('#power-val', `${Math.round(p.power)}`);
   setText('#moves-left', `(${p.moves})`);
+  const [alo, ahi] = g.angleRange();
+  if (angleIn.min !== String(180 - ahi)) {
+    angleIn.min = String(180 - ahi);
+    angleIn.max = String(180 - alo);
+  }
   if (document.activeElement !== angleIn) angleIn.value = String(180 - p.angle);
   if (document.activeElement !== powerIn) powerIn.value = String(p.power);
   $('#controls').classList.toggle('disabled', !human());
@@ -362,7 +387,7 @@ function frame(now: number) {
   last = now;
   if (game && renderer) {
     if (!paused) {
-      for (const k of held) act(k, false);
+      applyHeld(real);
       cpus[game.current]?.update(real);
       acc += real * fx.timeScale;
       let steps = 0;
@@ -371,7 +396,7 @@ function frame(now: number) {
         acc -= DT;
         steps++;
       }
-      fx.update(real * (fx.timeScale < 1 ? 0.35 : 1), game);
+      fx.update(real * (fx.timeScale < 1 ? 0.35 : 1), game, real);
     }
     renderer.draw(paused ? 0 : real);
     updateHud();
@@ -381,6 +406,7 @@ function frame(now: number) {
 requestAnimationFrame(frame);
 
 window.addEventListener('resize', () => renderer?.resize());
+window.addEventListener('blur', () => held.clear());
 
 // Test hook used by automated QA (read-only access to the live game and effects).
 (window as unknown as { __tankDuel: object }).__tankDuel = {

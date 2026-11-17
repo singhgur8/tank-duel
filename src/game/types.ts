@@ -15,7 +15,8 @@ export type Action =
       type: 'spawn';
       count: number;
       spreadDeg: number;
-      direction?: 'velocity' | 'up' | 'down';
+      /** 'forward' = up and onward in the parent's horizontal direction (hops). */
+      direction?: 'velocity' | 'up' | 'down' | 'forward';
       /** Absolute speed in px/s. Omit to keep the parent's speed. */
       speed?: number;
       /** Random +/- fraction applied to each child's speed. */
@@ -51,7 +52,7 @@ export interface ProjectileDef {
   roll?: { maxTime: number };
   /** After touching ground, keep travelling through it, carving a tunnel. onImpact runs at the end. */
   burrow?: { length: number; radius: number; speed?: number };
-  /** Steer toward the nearest enemy after `delay` seconds, turning at most `turnRate` rad/s. */
+  /** Steer toward the nearest enemy once past the top of the arc (and at least `delay` s old), turning at most `turnRate` rad/s. */
   homing?: { turnRate: number; delay: number };
   onApex?: Action[];
   /** Remove the projectile after its apex actions (children carry on). */
@@ -75,6 +76,7 @@ export interface WeaponDef {
   category: WeaponCategory;
   /** Either a projectile or a beam. */
   projectile?: ProjectileDef;
+  /** Beams can also aim below the horizon (angle range widens to BEAM_ANGLE_MIN..BEAM_ANGLE_MAX). */
   beam?: BeamDef;
   /** Several projectiles per shot: fanned by spreadDeg, optionally staggered by delay seconds. */
   volley?: { count: number; spreadDeg: number; delay?: number };
