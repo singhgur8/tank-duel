@@ -54,7 +54,10 @@ export interface ProjectileDef {
   speedScale?: number; // multiplies launch speed, default 1
   /** Bounce off terrain this many times before running onImpact. */
   bounces?: number;
+  /** Share of the bounce speed kept (0..1). */
   restitution?: number;
+  /** Share of the along-the-surface speed lost on each bounce (0..1, default 0.12). */
+  friction?: number;
   onBounce?: Action[];
   /** After touching ground, roll along the surface and detonate when stopped or blocked. */
   roll?: { maxTime: number };

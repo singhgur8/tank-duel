@@ -77,6 +77,14 @@ export interface Tank {
   burnAcc: number;
   burnTimer: number;
   recoil: number;
+  /** Horizontal speed from knockback, recoil and sliding (px/s). */
+  vx: number;
+  /** Suspension: how far the hull is pushed down on its springs (px), and its speed. Visual only. */
+  bob: number;
+  bobV: number;
+  /** Hull rocking angle on the suspension (radians), and its speed. Visual only. */
+  pitch: number;
+  pitchV: number;
 }
 
 export interface Projectile extends FlightState {
@@ -153,7 +161,7 @@ export class Game {
   }
 
   private makeTank(x: number): Tank {
-    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, moveStartX: x, burnAcc: 0, burnTimer: 0, recoil: 0 };
+    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, moveStartX: x, burnAcc: 0, burnTimer: 0, recoil: 0, vx: 0, bob: 0, bobV: 0, pitch: 0, pitchV: 0 };
     t.y = this.groundUnder(x, 0);
     t.tilt = this.tiltAt(t);
     return t;
@@ -254,6 +262,7 @@ export class Game {
     const tank = this.tanks[this.current];
     tank.recoil = 1;
     if (w.beam) {
+      this.kick(tank, fireAngle, 70);
       this.fireBeam(w, fireAngle);
       return true;
     }
@@ -279,7 +288,18 @@ export class Game {
       this.spawnProjectile(def, m.x, m.y, vel.vx, vel.vy, this.current, this.current);
       this.fx.muzzle(m.x, m.y, s.angle, s.power, s.weapon);
       tank.recoil = 1;
+      this.kick(tank, s.angle, s.power * (s.weapon.volley ? 0.5 : 1));
     }
+  }
+
+  /** Firing recoil: the hull dips and rocks on its springs and the tank is nudged a few px backward. */
+  private kick(t: Tank, angleDeg: number, power: number) {
+    const c = Math.cos(angleDeg * DEG),
+      sn = Math.sin(angleDeg * DEG);
+    const k = 0.4 + power / 160;
+    t.bobV += 70 * k * Math.max(0.3, sn);
+    t.pitchV += -c * 2.2 * k;
+    if (!t.falling) t.vx -= c * (14 + power * 0.22);
   }
 
   spawnProjectile(def: ProjectileDef, x: number, y: number, vx: number, vy: number, owner: number, skipTank: number) {
@@ -338,7 +358,7 @@ export class Game {
       if (t.moveLeft <= 0 && !t.falling) this.phase = 'aim';
     } else if (this.phase === 'flight') {
       const busy =
-        this.projectiles.length > 0 || this.flames.length > 0 || this.pendingShots.length > 0 || this.terrain.settling || this.tanks.some((t) => t.falling);
+        this.projectiles.length > 0 || this.flames.length > 0 || this.pendingShots.length > 0 || this.terrain.settling || this.tanks.some((t) => t.falling || Math.abs(t.vx) > 10);
       this.quiet = busy ? 0 : this.quiet + dt;
       if (this.quiet >= TURN_SETTLE_DELAY) this.endTurn();
     }
@@ -384,15 +404,18 @@ export class Game {
     const d = p.def;
     if (p.resumeRoll) return this.enterRoll(p, hit.ax, hit.ay);
     if (p.bounces > 0) {
+      // Split the velocity into the part along the surface (kept, minus friction) and the part into it
+      // (reversed and scaled by restitution), so glancing hits skip and head-on hits pop straight up.
       const n = this.terrain.normalAt(hit.x, hit.y);
-      const dot = p.vx * n.nx + p.vy * n.ny;
-      if (dot < 0) {
-        p.vx -= 2 * dot * n.nx;
-        p.vy -= 2 * dot * n.ny;
-      }
+      const vn = p.vx * n.nx + p.vy * n.ny;
       const r = d.restitution ?? 0.7;
-      p.vx *= r;
-      p.vy *= r;
+      const keep = 1 - (d.friction ?? 0.12);
+      if (vn < 0) {
+        const tx = p.vx - vn * n.nx,
+          ty = p.vy - vn * n.ny;
+        p.vx = tx * keep - vn * r * n.nx;
+        p.vy = ty * keep - vn * r * n.ny;
+      }
       p.bounces--;
       p.x = hit.ax + n.nx;
       p.y = hit.ay + n.ny;
@@ -631,8 +654,40 @@ export class Game {
       total += dmg;
       this.applyDamage(i, dmg, owner, c.x, c.y - 18);
     });
+    this.knockback(x, y, radius);
     this.fx.explosion(x, y, radius, style, total);
     if (total >= 30) this.fx.hitStop(Math.min(0.35, 0.1 + total / 300));
+  }
+
+  /**
+   * Blast push: tanks near an explosion are thrown up and away from it, then bounce and slide to rest.
+   * Strength grows with blast size and closeness but is capped, so a tank is shoved tens of px, not across the map.
+   */
+  private knockback(x: number, y: number, radius: number) {
+    for (const t of this.tanks) {
+      const c = tankCenter(t);
+      const dx = c.x - x,
+        dy = c.y - y;
+      const d = Math.hypot(dx, dy);
+      const reach = radius * 1.4 + TANK_HIT_RADIUS;
+      if (d >= reach) continue;
+      const f = 1 - d / reach;
+      const sp = Math.min(240, (40 + radius * 1.5) * f);
+      const side = Math.abs(dx) < 2 ? 0 : Math.sign(dx);
+      // Mostly upward (the blast lifts the hull), partly sideways.
+      t.vx += side * sp * (0.5 + 0.4 * Math.min(1, Math.abs(dx) / (d + 1)));
+      const up = sp * (0.55 + 0.35 * Math.max(0, -dy / (d + 1)));
+      if (up > 50) {
+        if (!t.falling) {
+          t.falling = true;
+          t.fallStart = t.y;
+          t.vy = 0;
+        }
+        t.vy = Math.min(t.vy, 0) - up;
+      }
+      t.bobV += 160 * f;
+      t.pitchV += side * 6 * f;
+    }
   }
 
   applyDamage(tank: number, amount: number, owner: number, x: number, y: number, popup = true) {
@@ -707,7 +762,7 @@ export class Game {
   private stepTank(i: number, dt: number) {
     const t = this.tanks[i];
     t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
-    t.recoil = Math.max(0, t.recoil - dt * 5);
+    t.recoil = Math.max(0, t.recoil - dt * 4);
     if (t.moveLeft > 0 && !t.falling) {
       const step = Math.min(t.moveLeft, MOVE_SPEED * dt);
       const nx = clamp(t.x + t.moveDir * step, TANK_HALF_WIDTH + 2, WORLD_W - TANK_HALF_WIDTH - 2);
@@ -721,10 +776,21 @@ export class Game {
         t.x = nx;
         if (ng <= t.y) t.y = ng;
         t.moveLeft -= step;
+        t.pitchV += (t.moveDir * 0.6 - t.pitch) * dt * 4; // lean into the drive
       }
     }
+
+    // Sideways motion from knockback, recoil and sliding.
+    if (t.moveLeft <= 0) this.slide(t, dt);
+
     const g = this.groundUnder(t.x, t.y - 3);
-    if (g > t.y + 0.5) {
+    if (t.falling && t.vy < 0) {
+      // Thrown upward: rise until gravity turns it round. Hitting an overhang stops the climb.
+      t.vy += GRAVITY * 1.2 * dt;
+      const ny = t.y + t.vy * dt;
+      if (this.terrain.solid(t.x, ny - PIVOT_HEIGHT - 6)) t.vy = 0;
+      else t.y = Math.max(ny, PIVOT_HEIGHT + 2);
+    } else if (g > t.y + 0.5) {
       if (!t.falling) {
         t.falling = true;
         t.fallStart = t.y;
@@ -738,12 +804,69 @@ export class Game {
       if (g < t.y && t.y - g <= 4 && !this.terrain.solid(t.x, t.y - PIVOT_HEIGHT - 4)) t.y = g;
       if (t.falling) this.land(t);
     }
-    t.tilt += (this.tiltAt(t) - t.tilt) * Math.min(1, dt * 10);
+    t.tilt += (this.tiltAt(t) - t.tilt) * Math.min(1, dt * (t.falling ? 3 : 10));
+
+    // Suspension springs (visual): under-damped so the hull settles with a little wobble.
+    t.bobV += (-170 * t.bob - 11 * t.bobV) * dt;
+    t.bob = clamp(t.bob + t.bobV * dt, -3, 6);
+    t.pitchV += (-140 * t.pitch - 9 * t.pitchV) * dt;
+    t.pitch = clamp(t.pitch + t.pitchV * dt, -0.22, 0.22);
+  }
+
+  /** Horizontal motion: ground friction, sliding down steep slopes, and bumping into walls. */
+  private slide(t: Tank, dt: number) {
+    if (!t.falling) {
+      const l = this.groundNear(t.x - 12, t.y, 14, 24),
+        r = this.groundNear(t.x + 12, t.y, 14, 24);
+      const ang = Math.atan2(r - l, 24); // >0: ground falls away to the right
+      const STEEP = 0.62; // ~35°: tracks hold on anything gentler
+      if (Math.abs(ang) > STEEP) t.vx += Math.sign(ang) * GRAVITY * (Math.sin(Math.abs(ang)) - Math.sin(STEEP)) * 2.2 * dt;
+      // Perched on a lip: if only one end of the treads touches ground, the tank tips off toward the drop.
+      let n = 0,
+        sum = 0;
+      for (let dx = -TANK_HALF_WIDTH + 3; dx <= TANK_HALF_WIDTH - 3; dx += 3)
+        if (this.terrain.surfaceBelow(t.x + dx, t.y - 3) <= t.y + 2) {
+          n++;
+          sum += dx;
+        }
+      // Only when the middle of the tank (its centre of mass) hangs over a real drop.
+      const perched = n > 0 && Math.abs(sum / n) > TANK_HALF_WIDTH * 0.5 && this.terrain.surfaceBelow(t.x, t.y - 3) > t.y + 10;
+      if (perched) t.vx -= Math.sign(sum) * GRAVITY * 0.6 * dt;
+      t.vx *= Math.max(0, 1 - 6 * dt); // tread friction
+      if (Math.abs(t.vx) < 3 && Math.abs(ang) <= STEEP && !perched) t.vx = 0;
+    } else t.vx *= Math.max(0, 1 - 0.3 * dt); // a little air drag
+    if (t.vx === 0) return;
+    const nx = clamp(t.x + t.vx * dt, TANK_HALF_WIDTH + 2, WORLD_W - TANK_HALF_WIDTH - 2);
+    if (nx === t.x) {
+      t.vx = 0;
+      return;
+    }
+    const ng = this.groundUnder(nx, t.y - 14);
+    const rise = t.y - ng;
+    if (rise > (t.falling ? 2 : Math.max(3, Math.abs(nx - t.x) * MAX_CLIMB_PER_PX + 1))) {
+      // Wall: a flying tank bounces off it softly; a grounded one just stops.
+      t.pitchV += Math.sign(t.vx) * 1.5;
+      t.vx = t.falling ? t.vx * -0.3 : 0;
+      return;
+    }
+    t.x = nx;
+    if (!t.falling && ng < t.y) t.y = ng;
   }
 
   private land(t: Tank) {
+    const impact = t.vy;
+    if (impact > 260) {
+      // Hard landing: bounce back up a little, losing most of the energy.
+      t.vy = -impact * 0.28;
+      t.vx *= 0.7;
+      t.bobV += impact * 0.25;
+      this.fx.tankLand(t.x, t.y, impact);
+      return;
+    }
     t.falling = false;
-    if (t.y - t.fallStart > 6) this.fx.tankLand(t.x, t.y, t.vy);
+    if (t.y - t.fallStart > 6 || impact > 120) this.fx.tankLand(t.x, t.y, impact);
+    t.bobV += impact * 0.25;
+    t.pitchV += t.vx * 0.01;
     t.vy = 0;
   }
 

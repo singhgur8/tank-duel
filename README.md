@@ -13,6 +13,9 @@ sound are made for this project.
 - **Game lobby**: take turns picking weapons (draft) or deal them at random, 5–20 weapons each, single games or best of 3/5, wind strength, terrain shape (rolling, peaks, flat, valley), scenery and CPU level.
 - **Destructible terrain** with falling dirt, tank movement (4 moves per game), wind that changes every turn,
   and score-based play: damage you deal is your score, and hurting yourself scores for your opponent.
+- **Elastic physics**: tanks ride on springy suspension, kick back when they fire, get thrown by nearby blasts,
+  bounce on hard landings, tip into craters and slide down steep slopes. Bouncy rounds keep their speed along
+  the ground on glancing hits (restitution plus surface friction). All of it runs in the deterministic simulation.
 - **Premium feel**: real projectile physics on a fixed 120 Hz step, glowing trails, layered explosions
   (flash, fireball, sparks, debris, smoke, shockwave), screen shake, hit-stop, scorch marks, synthesized audio.
 - **Plays offline**: it's a PWA, so open it once in a browser and choose *Install* to get a standalone app that

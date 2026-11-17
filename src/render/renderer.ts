@@ -187,12 +187,19 @@ export class Renderer {
     ctx.translate(t.x, t.y);
     ctx.rotate(t.tilt);
     ctx.scale(TANK_SCALE, TANK_SCALE);
-    const recoil = t.recoil * t.recoil * 5;
+    const recoil = t.recoil * t.recoil * 8;
+    // The hull rides on springs above the treads: `bob` pushes it down, `pitch` rocks it.
+    const hull = () => {
+      ctx.translate(0, t.bob / TANK_SCALE - 7);
+      ctx.rotate(t.pitch);
+      ctx.translate(0, 7);
+    };
 
     // barrel (drawn first so the turret covers its base)
     const pivotY = -PIVOT_HEIGHT / TANK_SCALE;
-    const a = -p.angle * DEG - t.tilt;
+    const a = -p.angle * DEG - t.tilt - t.pitch;
     ctx.save();
+    hull();
     ctx.translate(0, pivotY);
     ctx.rotate(a);
     const bl = BARREL_LEN / TANK_SCALE - recoil;
@@ -221,6 +228,8 @@ export class Renderer {
       ctx.fill();
     }
     // hull
+    ctx.save();
+    hull();
     const hg = ctx.createLinearGradient(0, -16, 0, -6);
     hg.addColorStop(0, lighten(p.color, 0.35));
     hg.addColorStop(1, darken(p.color, 0.35));
@@ -247,6 +256,7 @@ export class Renderer {
     ctx.moveTo(-12, -14.5);
     ctx.lineTo(12, -14.5);
     ctx.stroke();
+    ctx.restore();
 
     if (t.hitFlash > 0) {
       ctx.globalCompositeOperation = 'lighter';
