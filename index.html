@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0d0f1a" />
+    <meta name="description" content="Turn-based artillery tank duel. Hot-seat or vs CPU. Plays offline." />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon-192.png" />
+    <title>Tank Duel</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="stage">
+        <canvas id="game"></canvas>
+
+        <div id="hud-top">
+          <div class="plates">
+            <div class="plate" id="p0card"><div class="pname"></div><div class="lcd pscore">0</div><div class="pmeta"></div></div>
+            <div class="plate hidden" id="p2card"><div class="pname"></div><div class="lcd pscore">0</div><div class="pmeta"></div></div>
+          </div>
+          <div id="center-hud">
+            <div id="wind"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9h11a3 3 0 1 0-3-3"/><path d="M3 13h15a3 3 0 1 1-3 3"/><path d="M3 17h6"/></svg><span class="wlabel">WIND</span><div id="wind-bar"><div id="wind-fill"></div><div id="wind-mid"></div></div><span class="lcd" id="wind-val">0</span></div>
+            <div id="turn-info"></div>
+          </div>
+          <div class="plate right" id="p1card"><div class="pname"></div><div class="lcd pscore">0</div><div class="pmeta"></div></div>
+        </div>
+
+        <div id="banner"></div>
+        <div id="cpu-thinking" class="hidden">CPU is aiming…</div>
+        <button id="pause-btn" class="icon-btn" aria-label="Menu"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg></button>
+        <button id="mute-btn" class="icon-btn" aria-label="Sound"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/><path class="mute" d="M16 9l6 6M22 9l-6 6"/></svg></button>
+      </div>
+
+      <div id="controls" class="console">
+        <div class="bay weapon">
+          <div class="baylabel">Weapon</div>
+          <div class="row">
+            <button class="step" data-act="wprev" aria-label="Previous weapon">◀</button>
+            <button id="weapon-btn" aria-label="Choose weapon"><img id="weapon-icon" alt="" /><span class="wtexts"><span id="weapon-name">Shell</span><span id="weapon-count"></span></span></button>
+            <button class="step" data-act="wnext" aria-label="Next weapon">▶</button>
+          </div>
+        </div>
+        <button id="fire-btn"><span>FIRE</span></button>
+        <div class="bay dials">
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20h18"/><path d="M4 20 17.5 7.5"/><path d="M11 20a7 7 0 0 0-2-4.9"/><circle cx="18.5" cy="6.5" r="1.6" fill="currentColor"/></svg>Angle</div>
+            <div class="row"><button class="step" data-act="a+" data-hold aria-label="Angle left">◀</button><span class="lcd" id="angle-val">45°</span><button class="step" data-act="a-" data-hold aria-label="Angle right">▶</button></div>
+          </div>
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="15" width="3" height="5" rx=".6" fill="currentColor"/><rect x="8" y="11" width="3" height="9" rx=".6" fill="currentColor"/><rect x="13" y="7" width="3" height="13" rx=".6" fill="currentColor"/><rect x="18" y="3" width="3" height="17" rx=".6" fill="currentColor" opacity=".45"/></svg>Power</div>
+            <div class="row"><button class="step" data-act="p-" data-hold aria-label="Less power">−</button><span class="lcd" id="power-val">60</span><button class="step" data-act="p+" data-hold aria-label="More power">+</button></div>
+          </div>
+          <div class="dial">
+            <div class="baylabel"><svg class="ci" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="12" width="14" height="6" rx="3"/><circle cx="8.5" cy="15" r="1" fill="currentColor"/><circle cx="12" cy="15" r="1" fill="currentColor"/><circle cx="15.5" cy="15" r="1" fill="currentColor"/><path d="M8 12l1.5-3h5L16 12"/><path d="M1.5 6.5h4M3.5 4.5l-2 2 2 2M22.5 6.5h-4M20.5 4.5l2 2-2 2"/></svg>Move</div>
+            <div class="row"><button class="step" data-act="mleft" aria-label="Move left">◀</button><span class="lcd short" id="moves-left">4</span><button class="step" data-act="mright" aria-label="Move right">▶</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Lobby -->
+      <div id="menu" class="overlay">
+        <div class="panel lobby">
+          <h1>TANK<span>DUEL</span></h1>
+          <p class="tag">Turn-based artillery. Bend shells around the wind, carve the hills, outscore your rival.</p>
+          <div class="modes">
+            <button class="mode active" data-mode="hotseat"><b>2 Players</b><small>Same device, take turns</small></button>
+            <button class="mode" data-mode="cpu"><b>vs CPU</b><small>Difficulty 1–10</small></button>
+            <button class="mode" data-mode="three"><b>3 Players</b><small>Free-for-all</small></button>
+          </div>
+          <div class="lobby-grid">
+            <section>
+              <h3>Players</h3>
+              <div class="opt"><span>Players</span>
+                <div class="seg" data-key="count"><button data-v="2">2</button><button data-v="3">3</button></div></div>
+              <div id="seats"></div>
+            </section>
+            <section>
+              <h3>Arsenal</h3>
+              <div class="opt"><span>Weapons each</span>
+                <div class="seg" data-key="weapons"><button data-v="5">5</button><button data-v="10">10</button><button data-v="15">15</button><button data-v="20">20</button></div></div>
+              <div class="opt"><span>Weapon choice</span>
+                <div class="seg" data-key="selection"><button data-v="draft">Take turns picking</button><button data-v="random">Random</button></div></div>
+              <div class="opt"><span>Weapons in play</span>
+                <button class="ghost arsenal-open" id="arsenal-btn">All weapons</button></div>
+            </section>
+            <section>
+              <h3>Battlefield</h3>
+              <div class="opt"><span>Terrain</span>
+                <div class="seg" data-key="terrain"><button data-v="random">Random</button><button data-v="rolling">Rolling</button><button data-v="mountains">Peaks</button><button data-v="flat">Flat</button><button data-v="valley">Valley</button></div></div>
+              <div class="opt"><span>Wind</span>
+                <div class="seg" data-key="wind"><button data-v="off">Off</button><button data-v="light">Light</button><button data-v="normal">Normal</button><button data-v="strong">Strong</button></div></div>
+              <label>Scenery <select id="theme"><option value="">Random</option></select></label>
+            </section>
+            <section>
+              <h3>Match</h3>
+              <div class="opt"><span>Rounds</span>
+                <div class="seg" data-key="rounds"><button data-v="1">1</button><button data-v="3">Best of 3</button><button data-v="5">Best of 5</button></div></div>
+            </section>
+          </div>
+          <button id="start-btn" class="primary">Start battle</button>
+          <div class="menu-foot">
+            <button id="install-btn" class="ghost hidden">Install app</button>
+            <span class="keys">Keys: ←/→ angle · ↑/↓ power (hold Shift for fine) · A/D move · Q/E weapon · W weapon list · Space fire · Esc menu · Drag on the field to aim</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weapon draft -->
+      <div id="arsenal" class="overlay hidden">
+        <div class="panel wide arsenal">
+          <div class="draft-head">
+            <div><h2>Weapons in play</h2><div id="arsenal-count"></div></div>
+            <div class="draft-actions">
+              <button class="ghost" data-preset="all">All on</button>
+              <button class="ghost" data-preset="none">All off</button>
+              <button class="ghost" data-preset="explosive">Explosives</button>
+              <button class="ghost" data-preset="spread">Spreads</button>
+              <button class="ghost" data-preset="special">Specials</button>
+              <button class="ghost" data-preset="nodirt">No dirt tools</button>
+              <button class="ghost" data-preset="random">Random 15</button>
+            </div>
+          </div>
+          <p class="hint">Tap a weapon to switch it on or off. Only weapons that are on can be picked or dealt.</p>
+          <div id="arsenal-grid"></div>
+          <button id="arsenal-done" class="primary">Done</button>
+        </div>
+      </div>
+
+      <div id="draft" class="overlay hidden">
+        <div class="panel wide draft">
+          <div class="draft-head">
+            <div><h2>Weapon draft</h2><div id="draft-turn"></div></div>
+            <div class="draft-actions">
+              <button class="ghost" id="draft-random">Random pick</button>
+              <button class="ghost" id="draft-auto">Fill the rest at random</button>
+            </div>
+          </div>
+          <div class="draft-body">
+            <div class="hand" id="hand0"><h3></h3><div class="hand-list"></div></div>
+            <div id="draft-pool"></div>
+            <div class="hands-right">
+              <div class="hand" id="hand1"><h3></h3><div class="hand-list"></div></div>
+              <div class="hand hidden" id="hand2"><h3></h3><div class="hand-list"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Weapon picker -->
+      <div id="picker" class="overlay hidden">
+        <div class="panel wide">
+          <div class="picker-head"><h2>Choose weapon</h2><button class="ghost" id="picker-close">Close</button></div>
+          <div id="picker-grid"></div>
+        </div>
+      </div>
+
+      <!-- Pause -->
+      <div id="pause" class="overlay hidden">
+        <div class="panel small">
+          <h2>Paused</h2>
+          <button class="primary" id="resume-btn">Resume</button>
+          <button class="ghost" id="quit-btn">Quit to menu</button>
+        </div>
+      </div>
+
+      <!-- Game over -->
+      <div id="gameover" class="overlay hidden">
+        <div class="panel small">
+          <div id="go-round"></div>
+          <h2 id="go-title">Victory</h2>
+          <div id="go-scores"></div>
+          <div id="go-match"></div>
+          <button class="primary" id="next-btn">Next round</button>
+          <button class="primary" id="rematch-btn">New match</button>
+          <button class="ghost" id="menu-btn">Main menu</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
