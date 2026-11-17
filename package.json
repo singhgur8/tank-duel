@@ -10,12 +10,69 @@
     "build:single": "vite build --mode single",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "app": "npm run build:single && electron .",
+    "dist:mac": "npm run build:single && electron-builder --mac dir --universal --publish never",
+    "dist:win": "npm run build:single && electron-builder --win --publish never"
   },
   "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8",
     "typescript": "5.8.3",
     "vite": "6.3.5",
     "vite-plugin-singlefile": "2.2.0",
     "vitest": "3.2.4"
+  },
+  "main": "electron/main.cjs",
+  "author": "Tank Duel",
+  "build": {
+    "appId": "io.tankduel.app",
+    "productName": "Tank Duel",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**",
+      "dist-single/index.html",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.games",
+      "icon": "public/icon-512.png",
+      "identity": null
+    },
+    "win": {
+      "icon": "public/icon-512.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Tank-Duel-Setup-${version}.exe"
+    },
+    "portable": {
+      "artifactName": "Tank-Duel-Portable-${version}.exe"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "icon": "public/icon-512.png",
+      "category": "Game"
+    }
   }
 }

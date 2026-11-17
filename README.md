@@ -16,7 +16,33 @@ sound are made for this project.
 - **Plays offline**: it's a PWA, so open it once in a browser and choose *Install* to get a standalone app that
   works without a connection. No asset files: graphics are drawn in code and sounds are synthesized.
 
-## Run it
+## Desktop app (Mac and Windows)
+
+Tank Duel runs as a normal app on your computer, fully offline.
+
+**Download it:** open the repository's **Releases** page on GitHub and grab the latest build.
+
+- **Mac** (Apple Silicon and Intel): download `Tank-Duel-…-mac.dmg`, open it and drag **Tank Duel** into **Applications**.
+  The app isn't signed with an Apple developer certificate, so the first time you open it:
+  right-click (or Control-click) **Tank Duel** in Applications and choose **Open**, then **Open** again.
+  If macOS only offers *Move to Trash*, go to **System Settings → Privacy & Security**, scroll down and click **Open Anyway**.
+  After that it opens normally from Launchpad or the Dock.
+- **Windows:** run `Tank-Duel-Setup-….exe` to install it, or use `Tank-Duel-Portable-….exe` without installing.
+  If SmartScreen appears, click **More info → Run anyway**.
+
+**New builds:** push a version tag (for example `git tag v0.2.0 && git push origin v0.2.0`) and the *Desktop app*
+GitHub Action builds both apps and attaches them to a new Release. You can also run the action by hand from the
+**Actions** tab and download the files from the run.
+
+**Run the app from source** (needs [Node.js](https://nodejs.org) 20+):
+
+```bash
+npm install
+npm run app          # builds the game and opens it in a desktop window
+npm run dist:mac     # builds release/mac-universal/Tank Duel.app on a Mac
+```
+
+## Run it in a browser
 
 ```bash
 npm install
