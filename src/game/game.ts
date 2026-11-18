@@ -257,7 +257,8 @@ export class Game {
 
   clampAngle(a: number) {
     const [lo, hi] = this.angleRange();
-    return clamp(a, lo, hi);
+    // whole degrees only
+    return clamp(Math.round(a), lo, hi);
   }
 
   private fire(): boolean {

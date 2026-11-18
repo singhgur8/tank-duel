@@ -66,7 +66,7 @@ npm test             # simulation + CPU tests
 
 | Action | Keyboard | Touch / mouse |
 | --- | --- | --- |
-| Angle | ← / → (Shift = fine) | Angle buttons or slider, or drag on the battlefield |
+| Angle | ← / → (whole degrees) | Angle buttons or slider, or drag on the battlefield |
 | Power | ↑ / ↓ (Shift = fine) | Power buttons or slider, or drag distance |
 | Weapon | Q / E, W for the list | ‹ › or tap the weapon name |
 | Move tank | A / D | ◀ ▶ |

@@ -141,8 +141,8 @@ function act(a: string, fine = false) {
   const k = fine ? 0.2 : 1;
   const p = game.player;
   switch (a) {
-    case 'a+': return nudge(k, 0);
-    case 'a-': return nudge(-k, 0);
+    case 'a+': return nudge(1, 0);
+    case 'a-': return nudge(-1, 0);
     case 'p+': return nudge(0, k);
     case 'p-': return nudge(0, -k);
     case 'wprev': if (p.weapons.length) { send({ t: 'weapon', index: (p.selected - 1 + p.weapons.length) % p.weapons.length }); audio.click(); } return;
@@ -412,7 +412,7 @@ function updateHud() {
     icon.style.visibility = src ? 'visible' : 'hidden';
   }
   const [amin, amax] = g.angleRange();
-  syncDial('angle', p.angle, amin, amax, `${Math.round(p.angle * 10) / 10}°`);
+  syncDial('angle', p.angle, amin, amax, `${Math.round(p.angle)}°`);
   syncDial('power', p.power, 5, 100, `${Math.round(p.power)}`);
   setText('#moves-left', `${p.moves}`);
   $('#controls').classList.toggle('disabled', !human());
