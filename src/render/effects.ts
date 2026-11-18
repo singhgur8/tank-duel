@@ -394,17 +394,17 @@ export class Effects implements Fx {
   }
 
   damage(x: number, y: number, amount: number, color: string) {
-    if (amount < 1) return;
+    if (Math.abs(amount) < 1) return; // negative = points lost for hurting yourself
     // Rapid hits on the same tank (cascades, volleys) add up into one growing number instead of a pile-up.
     const near = this.popups.find((p) => p.color === color && p.max - p.life < 0.7 && Math.abs(p.x - x) < 50 && Math.abs(p.y - y) < 60);
     if (near) {
       near.amount += amount;
-      near.text = `+${Math.round(near.amount)}`;
-      near.big = near.amount >= 40;
+      near.text = `${near.amount < 0 ? '−' : '+'}${Math.round(Math.abs(near.amount))}`;
+      near.big = Math.abs(near.amount) >= 40;
       near.life = near.max;
       return;
     }
-    this.popups.push({ x, y, text: `+${Math.round(amount)}`, color, life: 1.6, max: 1.6, big: amount >= 40, amount });
+    this.popups.push({ x, y, text: `${amount < 0 ? '−' : '+'}${Math.round(Math.abs(amount))}`, color, life: 1.6, max: 1.6, big: Math.abs(amount) >= 40, amount });
   }
 
   tankLand(x: number, y: number, speed: number) {

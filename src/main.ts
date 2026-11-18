@@ -118,6 +118,8 @@ function startGame(opts: GameOptions) {
   for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft', '#arsenal']) $(id).classList.add('hidden');
   $('#p2card').classList.toggle('hidden', opts.players.length < 3);
   document.body.classList.toggle('three', opts.players.length > 2);
+  document.body.classList.toggle('four', opts.players.length > 3);
+  $('#p3card').classList.toggle('hidden', opts.players.length < 4);
   hudCache.clear();
 }
 
@@ -168,6 +170,58 @@ document.querySelectorAll<HTMLButtonElement>('#controls .step').forEach((b) => {
   });
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
 });
+
+// Angle and power: a slider under each readout, and the readout itself takes typed numbers.
+function syncDial(name: 'angle' | 'power', v: number, min: number, max: number, label: string) {
+  const range = $<HTMLInputElement>(`#${name}-range`);
+  const box = $<HTMLInputElement>(`#${name}-val`);
+  if (range.min !== String(min)) range.min = String(min);
+  if (range.max !== String(max)) range.max = String(max);
+  if (document.activeElement !== range && Number(range.value) !== v) range.value = String(v);
+  range.parentElement!.style.setProperty('--pct', String(Math.max(0, Math.min(1, (v - min) / (max - min)))));
+  if (document.activeElement !== box && box.value !== label) box.value = label;
+}
+function setAim(angle: number, power: number) {
+  if (!game) return;
+  send({ t: 'aim', angle: Math.round(angle * 10) / 10, power: Math.round(power * 10) / 10 });
+}
+for (const name of ['angle', 'power'] as const) {
+  const range = $<HTMLInputElement>(`#${name}-range`);
+  range.addEventListener('input', () => {
+    if (!game) return;
+    audio.unlock();
+    const v = Number(range.value);
+    if (name === 'angle') setAim(v, game.player.power);
+    else setAim(game.player.angle, v);
+  });
+  const box = $<HTMLInputElement>(`#${name}-val`);
+  box.addEventListener('focus', () => {
+    if (!human()) return box.blur();
+    box.value = box.value.replace('°', '');
+    box.select();
+  });
+  const commit = () => {
+    if (!game) return;
+    const v = parseFloat(box.value.replace(',', '.'));
+    if (Number.isFinite(v)) {
+      if (name === 'angle') setAim(v, game.player.power);
+      else setAim(game.player.angle, v);
+    }
+    hudCache.clear();
+  };
+  box.addEventListener('change', commit);
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      commit();
+      box.blur();
+    } else if (e.key === 'Escape') {
+      hudCache.clear();
+      box.blur();
+    }
+    e.stopPropagation();
+  });
+  box.addEventListener('blur', () => hudCache.clear());
+}
 
 function fire() {
   audio.unlock();
@@ -357,8 +411,9 @@ function updateHud() {
     if (src) icon.src = src;
     icon.style.visibility = src ? 'visible' : 'hidden';
   }
-  setText('#angle-val', `${Math.round(p.angle * 10) / 10}°`);
-  setText('#power-val', `${Math.round(p.power)}`);
+  const [amin, amax] = g.angleRange();
+  syncDial('angle', p.angle, amin, amax, `${Math.round(p.angle * 10) / 10}°`);
+  syncDial('power', p.power, 5, 100, `${Math.round(p.power)}`);
   setText('#moves-left', `${p.moves}`);
   $('#controls').classList.toggle('disabled', !human());
   $('#cpu-thinking').classList.toggle('hidden', !(g.phase === 'aim' && g.player.cpuLevel));

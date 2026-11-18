@@ -117,7 +117,7 @@ export interface Flame {
 
 export type Phase = 'aim' | 'moving' | 'flight' | 'gameover';
 
-export const PLAYER_COLORS = ['#38c6ff', '#ff7a3d', '#d77bff'];
+export const PLAYER_COLORS = ['#38c6ff', '#ff7a3d', '#d77bff', '#ffd84a'];
 
 export class Game {
   readonly rng: Rng;
@@ -140,9 +140,16 @@ export class Game {
   constructor(readonly opts: GameOptions, public fx: Fx = NullFx) {
     this.rng = new Rng(opts.seed);
     this.theme = THEMES.find((t) => t.id === opts.themeId) ?? this.rng.pick(THEMES);
-    // Player 1 starts on the left, player 2 on the right, a third player in the middle.
-    const xs = [Math.round(this.rng.range(0.07, 0.22) * WORLD_W), Math.round(this.rng.range(0.78, 0.93) * WORLD_W)];
-    if (opts.players.length > 2) xs.push(Math.round(this.rng.range(0.44, 0.56) * WORLD_W));
+    // Player 1 starts on the left and player 2 on the right; a third player takes the middle, and with
+    // four, players 3 and 4 split the middle into thirds.
+    const n = opts.players.length;
+    const xs =
+      n <= 2
+        ? [this.rng.range(0.07, 0.22), this.rng.range(0.78, 0.93)]
+        : n === 3
+          ? [this.rng.range(0.07, 0.2), this.rng.range(0.8, 0.93), this.rng.range(0.44, 0.56)]
+          : [this.rng.range(0.06, 0.15), this.rng.range(0.85, 0.94), this.rng.range(0.33, 0.41), this.rng.range(0.59, 0.67)];
+    xs.forEach((f, i) => (xs[i] = Math.round(f * WORLD_W)));
     this.terrain = Terrain.generate(WORLD_W, WORLD_H, this.rng, this.theme, xs, opts.terrain);
     this.tanks = xs.map((x) => this.makeTank(x));
     this.players = opts.players.map((p, i) => ({
@@ -396,11 +403,8 @@ export class Game {
     return sc.filter((v) => v === top).length > 1 ? -1 : sc.indexOf(top);
   }
 
-  /** Who scores when `tank` takes damage from `owner`: the shooter, or, for self-damage, everyone else. */
-  scorersFor(tank: number, owner: number): number[] {
-    if (tank !== owner) return [owner];
-    return this.players.map((_, i) => i).filter((i) => i !== tank);
-  }
+  /** Colour of the damage number: the shooter's for a hit on someone else, red for hurting yourself. */
+  static readonly SELF_HIT_COLOR = '#ff5a5a';
 
   private stepProjectile(p: Projectile) {
     const d0 = p.def;
@@ -789,10 +793,17 @@ export class Game {
   }
 
   applyDamage(tank: number, amount: number, owner: number, x: number, y: number, popup = true) {
-    const scorers = this.scorersFor(tank, owner);
-    for (const s of scorers) this.players[s].score += amount / scorers.length;
     this.tanks[tank].hitFlash = 1;
-    if (popup) this.fx.damage(x, y, amount, scorers.length === 1 ? this.players[scorers[0]].color : '#e6e6e6');
+    if (tank === owner) {
+      // Hurting yourself costs you the damage in points, but a score never drops below 0.
+      const p = this.players[tank];
+      const lost = Math.min(p.score, amount);
+      p.score -= lost;
+      if (popup) this.fx.damage(x, y, -lost, Game.SELF_HIT_COLOR);
+      return;
+    }
+    this.players[owner].score += amount;
+    if (popup) this.fx.damage(x, y, amount, this.players[owner].color);
   }
 
   private stepFlames(dt: number) {
@@ -830,8 +841,8 @@ export class Game {
         this.applyDamage(i, amt, b.owner, 0, 0, false);
         if (t.burnTimer > 0.45 && t.burnAcc >= 1) {
           const c = tankCenter(t);
-          const sc = this.scorersFor(i, b.owner);
-          this.fx.damage(c.x, c.y - 20, Math.round(t.burnAcc), sc.length === 1 ? this.players[sc[0]].color : '#e6e6e6');
+          const self = i === b.owner;
+          this.fx.damage(c.x, c.y - 20, (self ? -1 : 1) * Math.round(t.burnAcc), self ? Game.SELF_HIT_COLOR : this.players[b.owner].color);
           t.burnAcc = 0;
           t.burnTimer = 0;
         }

@@ -8,12 +8,18 @@ const mk = (seed: number) => new Game({ players: [{ name: 'A' }, { name: 'B' }],
 function shoot(g: Game, id: string) {
   g.player.weapons = [id, 'shell'];
   g.player.selected = 0;
-  const before = g.players[g.current].score;
   const me = g.current;
+  // Damage dealt to other tanks (self-hits now cost the shooter points, so the score alone isn't the measure).
+  let dealt = 0;
+  const orig = g.applyDamage.bind(g);
+  g.applyDamage = (tank, amount, owner, x, y, popup) => {
+    if (tank !== me && owner === me) dealt += amount;
+    orig(tank, amount, owner, x, y, popup);
+  };
   g.apply({ t: 'fire' });
   let n = 0;
   while (g.phase === 'flight' && n++ < 40 / DT) g.update(DT);
-  return g.players[me].score - before;
+  return dealt;
 }
 
 /** Park the enemy right in front of the shooter's barrel. */

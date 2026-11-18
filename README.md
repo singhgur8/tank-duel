@@ -15,10 +15,10 @@ sound are made for this project.
   get clear before they're allowed to hit it again, so chain weapons can cascade into huge scores. It falls out of
   the physics, not a special rule, and the blasts can catch you too.
 - **Weapons in play**: switch any weapon on or off in the lobby (with presets). Only enabled weapons can be picked or dealt.
-- **2 or 3 players**: any mix of humans and CPUs on one device, each CPU with its own level (1–10). Turns rotate, the draft goes round the table, and in a 3-way game the CPU goes after whoever is leading. Hurting yourself shares the points among your opponents.
+- **2 to 4 players**: any mix of humans and CPUs on one device, each CPU with its own level (1–10). Turns rotate, the draft goes round the table, and with 3 or 4 players the CPU goes after whoever is leading.
 - **Game lobby**: take turns picking weapons (draft) or deal them at random, 5–20 weapons each, single games or best of 3/5, wind strength, terrain shape (rolling, peaks, flat, valley), scenery and CPU level.
 - **Destructible terrain** with falling dirt, tank movement (4 moves per game), wind that changes every turn,
-  and score-based play: damage you deal is your score, and hurting yourself scores for your opponent.
+  and score-based play: damage you deal is your score, and hurting yourself takes that much off your own score (never below 0).
 - **Elastic physics**: tanks ride on springy suspension, kick back when they fire, get thrown by nearby blasts,
   bounce on hard landings, tip into craters and slide down steep slopes. Bouncy rounds keep their speed along
   the ground on glancing hits (restitution plus surface friction). All of it runs in the deterministic simulation.

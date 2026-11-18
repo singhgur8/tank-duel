@@ -15,7 +15,7 @@ export interface Seat {
 export interface MatchSettings {
   /** How many players take part (2 or 3). */
   count: number;
-  /** Always three seats; only the first `count` play. */
+  /** Always four seats; only the first `count` (2–4) play. */
   seats: Seat[];
   weapons: number;
   selection: 'draft' | 'random';
@@ -29,7 +29,7 @@ export interface MatchSettings {
 
 export const DEFAULT_SETTINGS: MatchSettings = {
   count: 2,
-  seats: [{ name: 'Player 1', cpu: 0 }, { name: 'Player 2', cpu: 0 }, { name: 'Player 3', cpu: 0 }],
+  seats: [{ name: 'Player 1', cpu: 0 }, { name: 'Player 2', cpu: 0 }, { name: 'Player 3', cpu: 0 }, { name: 'Player 4', cpu: 0 }],
   weapons: 10, selection: 'draft',
   terrain: 'random', wind: 'normal', theme: '', rounds: 1, disabled: [],
 };
@@ -66,8 +66,8 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
     if (old.name1) s.seats[1].name = old.name1;
     if (old.mode === 'cpu') s.seats[1].cpu = old.cpuLevel ?? 5;
   }
-  s.seats = [0, 1, 2].map((i) => ({ ...DEFAULT_SETTINGS.seats[i], ...(s.seats[i] ?? {}) }));
-  s.count = s.count === 3 ? 3 : 2;
+  s.seats = [0, 1, 2, 3].map((i) => ({ ...DEFAULT_SETTINGS.seats[i], ...(s.seats[i] ?? {}) }));
+  s.count = Math.min(4, Math.max(2, Math.round(Number(s.count) || 2)));
   const seatsEl = $('#seats');
   seatsEl.innerHTML = '';
   s.seats.forEach((seat, i) => {
@@ -93,7 +93,7 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
     });
     seatsEl.appendChild(row);
   });
-  const modeOf = () => (s.count === 3 ? 'three' : s.seats[1].cpu ? 'cpu' : 'hotseat');
+  const modeOf = () => (s.count >= 3 ? 'three' : s.seats[1].cpu ? 'cpu' : 'hotseat');
   // Forget ids of weapons that no longer exist.
   s.disabled = (s.disabled ?? []).filter((id) => WEAPONS.some((w) => w.id === id));
   const themeSel = $<HTMLSelectElement>('#theme');
@@ -136,7 +136,7 @@ export function initLobby(initial: Partial<MatchSettings>, onChange: (s: MatchSe
       } else if (m === 'cpu') {
         s.count = 2;
         setCpu(1, s.seats[1].cpu || 5);
-      } else s.count = 3;
+      } else s.count = Math.max(3, s.count);
       click();
       changed();
     }),
@@ -314,6 +314,7 @@ export function runDraft(opts: {
     turn.textContent = `${p.name} picks · ${hands[picker].length + 1} of ${perPlayer}`;
     turn.style.color = `var(--p${picker})`;
     $('#hand2').classList.toggle('hidden', n < 3);
+    $('#hand3').classList.toggle('hidden', n < 4);
     for (let i = 0; i < n; i++) {
       const el = $(`#hand${i}`);
       el.classList.toggle('picking', i === picker && !finished);

@@ -15,6 +15,7 @@ describe('arsenal', () => {
 
   it('thunderbolt hits a tank directly below and spares a distant one', () => {
     const g = mk(3);
+    g.current = 0;
     const [a, b] = g.tanks;
     g.runActions(getWeapon('thunderbolt').projectile!.onImpact, b.x + 10, b.y - 30, null, -1);
     expect(g.players[0].score).toBeGreaterThan(30);
