@@ -56,7 +56,8 @@ describe('point-blank shots', () => {
     while (g.phase === 'flight' && n++ < 40 / DT) g.update(DT);
     const ranged = g.players[0].score;
     console.log({ pb, ranged });
-    expect(pb).toBeGreaterThan(ranged * 1.8);
+    // Calmer slope physics keep a ranged target in its crater longer, so ranged hits land more of the cascade too.
+    expect(pb).toBeGreaterThan(ranged * 1.5);
     expect(pb).toBeGreaterThan(130);
   });
 

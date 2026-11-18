@@ -1,4 +1,4 @@
-import { DT, GRAVITY, MAX_SPEED, WIND_ACCEL, WORLD_W, BARREL_LEN, PIVOT_HEIGHT, TANK_HIT_RADIUS } from '../config';
+import { DT, GRAVITY, MAX_SPEED, WIND_ACCEL, WORLD_W, WORLD_H, BARREL_LEN, PIVOT_HEIGHT, TANK_HIT_RADIUS } from '../config';
 import { DEG } from '../core/rng';
 import type { Terrain } from '../core/terrain';
 import type { ProjectileDef } from './types';
@@ -137,7 +137,7 @@ export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): 
       tankI = i;
     }
   }
-  const th = marchTerrain(ctx.terrain, p.x, p.y, nx, ny);
+  const th = def.phase ? null : marchTerrain(ctx.terrain, p.x, p.y, nx, ny);
   p.age += dt;
   if (tankI >= 0 && (!th || tankT <= th.f)) {
     p.x = p.x + (nx - p.x) * tankT;
@@ -151,6 +151,6 @@ export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): 
   }
   p.x = nx;
   p.y = ny;
-  if (p.x < -60 || p.x > WORLD_W + 60) return { kind: 'out' };
+  if (p.x < -60 || p.x > WORLD_W + 60 || p.y > WORLD_H + 40) return { kind: 'out' };
   return null;
 }

@@ -6,7 +6,10 @@ sound are made for this project.
 
 - **2 players on one device** (hot-seat), or **vs CPU** with difficulty 1 to 10 (level 10 never misses when a
   trajectory exists).
-- **58 weapons**, each with its own icon and impact behaviour: shells, spreads, splitters, cluster bombs, hail, chain gun,
+- **67 weapons**, each with its own icon, its own projectile look (shell, grenade, bomb, missile, orb, canister, drill, popcorn…) and impact behaviour.
+  New inventions: Kettle Pop (popcorn kernels that keep popping), Singularity (a mini black hole that drags tanks in, then
+  collapses), Phase Shell (ghosts through hills), Mirror Shell, Pickpocket (steals points), Switcheroo (swap places),
+  Orbital Lance (beam from orbit), Echo Charge (blasts three times) and Twin Crawlers. Classics: shells, spreads, splitters, cluster bombs, hail, chain gun,
   scattergun, fireworks, airstrike, acid rain, swarm seekers, chain reactions (Ripple family), rollers, bouncers,
   a crawler, a boomerang, timed and proximity fuses, tunnelers, pile driver, mole swarm, a laser and a close-range
   blast, lightning, earthquake, napalm, volcano, a teleporter, fling and pull blasts, a random grab bag, a 1-in-4

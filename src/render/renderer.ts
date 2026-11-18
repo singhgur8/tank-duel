@@ -1,3 +1,6 @@
+import { drawLook, lookOf, pointsForward } from './projectiles';
+
+const SPRITE_SCALE = 1.7;
 import { BARREL_LEN, PIVOT_HEIGHT, TANK_SCALE, WORLD_H, WORLD_W } from '../config';
 import { DEG } from '../core/rng';
 import type { Game, Tank } from '../game/game';
@@ -407,7 +410,8 @@ export class Renderer {
       const d = p.def;
       const r = d.radius ?? 3.5;
       const y = p.mode === 'roll' ? p.y - r : p.y;
-      if (d.fuse !== undefined) {
+      const look = lookOf(d);
+      if (d.fuse !== undefined && d.fuse >= 2) {
         // Countdown above a fused grenade, blinking faster as it runs out.
         const left = Math.max(0, d.fuse - p.age);
         const blink = Math.sin(this.fx.time * (8 + (d.fuse - left) * 6)) > 0;
@@ -426,19 +430,20 @@ export class Renderer {
       const grd = ctx.createRadialGradient(p.x, y, 0, p.x, y, r * 4);
       grd.addColorStop(0, glow);
       grd.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = look === 'orb' ? 0.6 : 0.3;
       ctx.fillStyle = grd;
       ctx.fillRect(p.x - r * 4, y - r * 4, r * 8, r * 8);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = d.color;
-      ctx.beginPath();
-      ctx.arc(p.x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath();
-      ctx.arc(p.x - r * 0.3, y - r * 0.3, r * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.save();
+      ctx.translate(p.x, y);
+      if (pointsForward(look)) ctx.rotate(Math.atan2(p.vy, p.vx));
+      else if (look === 'ball' || look === 'clod') ctx.rotate(p.x / Math.max(2, r * 1.2)); // rolls with distance
+      else if (look === 'crawler') ctx.scale(p.bdx < 0 ? -1 : 1, 1);
+      else if (p.mode === 'fly') ctx.rotate(p.age * (look === 'kernel' ? 9 : 5) * (p.vx < 0 ? -1 : 1)); // tumbling
+      ctx.scale(SPRITE_SCALE, SPRITE_SCALE); // sprites read larger than their hit size
+      drawLook(ctx, look, d, r, this.fx.time + p.id);
+      ctx.restore();
     }
   }
 

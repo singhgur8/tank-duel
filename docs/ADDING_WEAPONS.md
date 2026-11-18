@@ -72,3 +72,10 @@ test suite checks that every weapon has one.
 Sub-munitions ignore the tank they burst from for only 0.04 s (a shooter's own shell ignores its shooter for 0.12 s).
 Slow children born deep inside a hull therefore hit it again; fast ones escape. Tune a weapon's point-blank strength
 with its child speed and count rather than with special cases.
+
+## New building blocks
+
+- `look` on a projectile picks its sprite: shell, grenade, bomb, missile, orb, ball, pellet, canister, clod, drill, kernel or crawler. Left out, one is chosen from what the projectile does.
+- `phase: true` flies through terrain.
+- Actions: `delay` (run actions later at the same spot), `charge` (gathering-energy visual), `steal` (take points), `swap` (trade places with the nearest tank), `column` (beam from the sky that cuts a trench).
+- Spawn direction `mirror` flips the parent's velocity left/right.

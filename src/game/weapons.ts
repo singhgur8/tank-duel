@@ -55,6 +55,25 @@ const ripple = (depth: number, radius: number, damage: number, kids: number, col
 /** A blob of mud that rolls to low ground and drops its dirt there. */
 const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 4 }, onImpact: [{ type: 'dirt', radius: 17 }] };
 
+/** A popcorn kernel: bounces about and pops after `fuse` s, throwing out `kids` smaller kernels that pop in turn. */
+const kernel = (fuse: number, size: number, damage: number, kids: number): ProjectileDef => ({
+  look: 'kernel',
+  radius: 2 + size * 0.06,
+  color: '#fff6d8',
+  glow: '#ffd36b',
+  trail: 'spark',
+  bounces: 3,
+  restitution: 0.55,
+  friction: 0.3,
+  fuse,
+  onImpact: [
+    boom(size, damage, 'small'),
+    ...(kids > 0
+      ? [{ type: 'spawn', count: kids, spreadDeg: 90, direction: 'up', speed: 210, speedJitter: 0.35, angleJitter: 20, projectile: kernel(0.45, size * 0.7, Math.max(3, Math.round(damage * 0.6)), 0) } as Action]
+      : []),
+  ],
+});
+
 export const WEAPONS: WeaponDef[] = [
   // ── Explosives ──────────────────────────────────────────────
   {
@@ -96,7 +115,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'frost-bomb', name: 'Frost Bomb', category: 'explosive',
     description: 'Shatters into a shower of ice shards.',
-    projectile: {
+    projectile: { look: 'bomb',
       radius: 5, color: '#e4fbff', glow: '#9fe8ff', trail: 'ice',
       onImpact: [
         boom(42, 30, 'ice'),
@@ -122,7 +141,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'earthquake', name: 'Earthquake', category: 'explosive',
     description: 'Shakes the ground around the impact, cracking hills and rattling every tank nearby.',
-    projectile: { radius: 6, color: '#c9a37a', trail: 'dirt', onImpact: [boom(20, 8, 'dirt'), { type: 'quake', radius: 230, damage: 34 }] },
+    projectile: { look: 'bomb', radius: 6, color: '#c9a37a', trail: 'dirt', onImpact: [boom(20, 8, 'dirt'), { type: 'quake', radius: 230, damage: 34 }] },
     ai: { value: 7 },
   },
 
@@ -162,7 +181,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'cluster', name: 'Cluster Bomb', category: 'spread',
     description: 'Explodes and scatters bomblets around the target.',
-    projectile: {
+    projectile: { look: 'bomb',
       radius: 5, color: '#ffb35a', trail: 'smoke',
       onImpact: [
         boom(36, 22),
@@ -174,7 +193,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'hailstorm', name: 'Hailstorm', category: 'spread',
     description: 'Bursts at its peak and rains pellets down below.',
-    projectile: {
+    projectile: { look: 'bomb',
       radius: 5, color: '#cfe8ff', trail: 'ice',
       onApex: [{ type: 'spawn', count: 14, spreadDeg: 50, direction: 'down', speed: 120, speedJitter: 0.6, angleJitter: 5, projectile: { radius: 2.5, color: '#e7f4ff', trail: 'ice', onImpact: [boom(20, 8, 'ice')] } }],
       consumeOnApex: true,
@@ -206,7 +225,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'fireworks', name: 'Fireworks', category: 'spread',
     description: 'Bursts at its peak into a ring of colourful stars that fall as little blasts.',
-    projectile: {
+    projectile: { look: 'missile',
       radius: 4.5, color: '#ffffff', glow: '#ff7ad9', trail: 'spark',
       onApex: [
         { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 170, speedJitter: 0.3, projectile: { radius: 3, color: '#ff5ac8', glow: '#ff5ac8', trail: 'plasma', onImpact: [boom(22, 9, 'plasma')] } },
@@ -244,7 +263,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'swarm', name: 'Swarm', category: 'spread',
     description: 'Releases three small seekers at its peak that hunt the enemy.',
-    projectile: {
+    projectile: { look: 'missile',
       radius: 5, color: '#ff9a9a', trail: 'smoke',
       onApex: [{ type: 'spawn', count: 3, spreadDeg: 50, direction: 'velocity', speed: 200, projectile: { radius: 3, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 1.6, delay: 0.25 }, onImpact: [boom(26, 16)] } }],
       consumeOnApex: true,
@@ -326,7 +345,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'wild-ball', name: 'Wild Ball', category: 'special',
     description: 'A super-bouncy ball that ricochets eight times before it goes off.',
-    projectile: { radius: 4.5, color: '#ffe066', glow: '#ffc400', trail: 'spark', bounces: 8, restitution: 0.86, onImpact: [boom(46, 34)] },
+    projectile: { look: 'ball', radius: 4.5, color: '#ffe066', glow: '#ffc400', trail: 'spark', bounces: 8, restitution: 0.86, onImpact: [boom(46, 34)] },
     ai: { value: 4 },
   },
   {
@@ -410,7 +429,7 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'lucky-dip', name: 'Lucky Dip', category: 'special',
     description: 'Nobody knows what is inside: a big blast, fire, a dirt dump, bomblets, lightning, or a damp squib.',
-    projectile: {
+    projectile: { look: 'grenade',
       radius: 5, color: '#ff8ad8', glow: '#ffd36b', trail: 'spark',
       onImpact: [{
         type: 'random',
@@ -514,6 +533,91 @@ export const WEAPONS: WeaponDef[] = [
       onImpact: [{ type: 'dirt', radius: 14 }, { type: 'spawn', count: 9, spreadDeg: 140, direction: 'up', speed: 190, speedJitter: 0.4, angleJitter: 6, projectile: mudBlob }],
     },
     ai: { value: 1 },
+  },
+  // ── Inventions ──────────────────────────────────────────────
+  {
+    id: 'kettle-pop', name: 'Kettle Pop', category: 'spread',
+    description: 'Bursts into hot kernels that skitter around and pop one after another, each pop flinging out more.',
+    projectile: {
+      look: 'kernel', radius: 5, color: '#fff2c4', glow: '#ffcc55', trail: 'spark',
+      onImpact: [
+        boom(20, 10, 'small'),
+        ...[0.55, 0.95, 1.35].map((fuse) => ({ type: 'spawn', count: 3, spreadDeg: 120, direction: 'up', speed: 230, speedJitter: 0.4, angleJitter: 15, projectile: kernel(fuse, 16, 7, 2) }) as Action),
+      ],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'singularity', name: 'Singularity', category: 'special',
+    description: 'Opens a tiny black hole that drags nearby tanks toward it for a second, then collapses with a violent burst.',
+    projectile: {
+      radius: 5, color: '#2a1050', glow: '#9b5cff', trail: 'plasma',
+      onImpact: [
+        { type: 'charge', radius: 130, time: 1.2, color: '#9b5cff' },
+        { type: 'push', radius: 140, strength: -230 },
+        { type: 'delay', time: 0.6, actions: [{ type: 'push', radius: 140, strength: -230 }] },
+        { type: 'delay', time: 1.2, actions: [boom(48, 55, 'void'), { type: 'shake', amount: 0.5 }] },
+      ],
+    },
+    ai: { value: 6 },
+  },
+  {
+    id: 'phase-shell', name: 'Phase Shell', category: 'special',
+    description: 'Ghosts straight through hills and walls. Goes off when it gets close to a tank, or after six seconds.',
+    projectile: { look: 'orb', radius: 4, color: '#bff9ff', glow: '#5ce1ff', trail: 'plasma', phase: true, proximity: 26, fuse: 6, onImpact: [boom(36, 34, 'plasma')] },
+    ai: { value: 4 },
+  },
+  {
+    id: 'mirror-shell', name: 'Mirror Shell', category: 'spread',
+    description: 'At the top of its arc it splits off a twin that flies the opposite way. Covers both sides of the map.',
+    projectile: {
+      radius: 4, color: '#e8f4ff', glow: '#9fd0ff', trail: 'spark',
+      onApex: [{ type: 'spawn', count: 1, spreadDeg: 0, direction: 'mirror', projectile: { radius: 4, color: '#e8f4ff', glow: '#9fd0ff', trail: 'spark', onImpact: [boom(32, 28)] } }],
+      onImpact: [boom(32, 28)],
+    },
+    ai: { value: 3 },
+  },
+  {
+    id: 'pickpocket', name: 'Pickpocket', category: 'special',
+    description: 'Barely scratches the paint, but steals up to 20 points from every tank it lands near and hands them to you.',
+    projectile: { look: 'orb', radius: 4, color: '#ffe680', glow: '#ffd84a', trail: 'spark', onImpact: [{ type: 'steal', radius: 50, points: 20 }, boom(14, 5, 'small')] },
+    ai: { value: 4 },
+  },
+  {
+    id: 'switcheroo', name: 'Switcheroo', category: 'utility',
+    description: 'Land it near a tank and you swap places with it. Steal the high ground or dump someone into a pit.',
+    projectile: { radius: 4.5, color: '#e6d6ff', glow: '#c9a6ff', trail: 'plasma', onImpact: [{ type: 'swap', radius: 140 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'orbital-lance', name: 'Orbital Lance', category: 'special',
+    description: 'A marker round. A moment after it lands, a beam from orbit cuts a deep trench straight down through the spot.',
+    projectile: {
+      radius: 3.5, color: '#ff8a8a', glow: '#ff3b3b', trail: 'spark',
+      onImpact: [
+        { type: 'charge', radius: 34, time: 0.8, color: '#ff4a4a' },
+        { type: 'delay', time: 0.8, actions: [{ type: 'column', width: 30, damage: 50, depth: 170, color: '#ff5a5a' }] },
+      ],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'echo-charge', name: 'Echo Charge', category: 'explosive',
+    description: 'Goes off three times in the same spot, each blast bigger than the last and digging deeper.',
+    projectile: { look: 'bomb',
+      radius: 4.5, color: '#ffd7a8', glow: '#ff9d4d', trail: 'smoke',
+      onImpact: [boom(22, 12), { type: 'delay', time: 0.45, actions: [boom(30, 16)] }, { type: 'delay', time: 0.9, actions: [boom(40, 22, 'big')] }],
+    },
+    ai: { value: 5 },
+  },
+  {
+    id: 'twin-crawlers', name: 'Twin Crawlers', category: 'special',
+    description: 'Splits into two crawlers on landing, one driving each way along the ground.',
+    projectile: { look: 'crawler',
+      radius: 5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke',
+      onImpact: [{ type: 'spawn', count: 2, spreadDeg: 150, direction: 'up', speed: 140, projectile: { radius: 4.5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 4 }, onImpact: [boom(38, 28)] } }],
+    },
+    ai: { value: 4 },
   },
 ];
 
