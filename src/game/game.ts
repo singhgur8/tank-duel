@@ -77,6 +77,10 @@ export interface Tank {
   moveStartX: number;
   burnAcc: number;
   burnTimer: number;
+  /** 0..1, how hard the tank is burning right now (drives the on-hull fire). */
+  heat: number;
+  /** 0..0.6, soot built up from burning. */
+  char: number;
   recoil: number;
   /** Horizontal speed from knockback, recoil and sliding (px/s). */
   vx: number;
@@ -170,7 +174,7 @@ export class Game {
   }
 
   private makeTank(x: number): Tank {
-    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, moveStartX: x, burnAcc: 0, burnTimer: 0, recoil: 0, vx: 0, bob: 0, bobV: 0, pitch: 0, pitchV: 0 };
+    const t: Tank = { x, y: 0, vy: 0, falling: false, fallStart: 0, tilt: 0, hitFlash: 0, moveLeft: 0, moveDir: 0, moveStartX: x, burnAcc: 0, burnTimer: 0, heat: 0, char: 0, recoil: 0, vx: 0, bob: 0, bobV: 0, pitch: 0, pitchV: 0 };
     t.y = this.groundUnder(x, 0);
     t.tilt = this.tiltAt(t);
     return t;
@@ -794,7 +798,7 @@ export class Game {
   }
 
   applyDamage(tank: number, amount: number, owner: number, x: number, y: number, popup = true) {
-    this.tanks[tank].hitFlash = 1;
+    if (popup) this.tanks[tank].hitFlash = 1;
     if (tank === owner) {
       // Hurting yourself costs you the damage in points, but a score never drops below 0.
       const p = this.players[tank];
@@ -837,6 +841,8 @@ export class Game {
       const t = this.tanks[i];
       if (b.dps > 0) {
         const amt = Math.min(b.dps, MAX_BURN_DPS) * dt;
+        t.heat = Math.min(1, t.heat + dt * 6);
+        t.char = Math.min(0.6, t.char + dt * 0.12);
         t.burnAcc += amt;
         t.burnTimer += dt;
         this.applyDamage(i, amt, b.owner, 0, 0, false);
@@ -872,6 +878,7 @@ export class Game {
   private stepTank(i: number, dt: number) {
     const t = this.tanks[i];
     t.hitFlash = Math.max(0, t.hitFlash - dt * 3);
+    t.heat = Math.max(0, t.heat - dt * 1.5);
     t.recoil = Math.max(0, t.recoil - dt * 4);
     if (t.moveLeft > 0 && !t.falling) {
       const step = Math.min(t.moveLeft, MOVE_SPEED * dt);

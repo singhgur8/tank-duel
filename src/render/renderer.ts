@@ -172,6 +172,67 @@ export class Renderer {
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  /** Fire licking off a burning hull: smoke behind, flame tongues, then rising embers. Tank-local, unscaled units. */
+  private drawTankFire(ctx: CanvasRenderingContext2D, heat: number, time: number, seed: number, bob: number) {
+    const frac = (v: number) => v - Math.floor(v);
+    const top = -14 + bob;
+    ctx.save();
+    // smoke column
+    for (let k = 0; k < 6; k++) {
+      const ph = frac(time * 0.45 + k / 6 + seed * 0.13);
+      const x = Math.sin(k * 2.1 + seed) * 7 + ph * ph * 16 + Math.sin(time * 1.3 + k) * 3;
+      const y = top - 6 - ph * 58;
+      const r = 5 + ph * 15;
+      const a = heat * 0.45 * Math.sin(ph * Math.PI);
+      const sg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      sg.addColorStop(0, `rgba(96,88,84,${a.toFixed(3)})`);
+      sg.addColorStop(1, 'rgba(96,88,84,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    // warm halo hugging the hull
+    const hg = ctx.createRadialGradient(0, top + 4, 2, 0, top + 2, 30);
+    hg.addColorStop(0, `rgba(255,120,40,${(0.18 * heat).toFixed(3)})`);
+    hg.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(-32, top - 28, 64, 50);
+    // flame tongues
+    const n = 6;
+    for (let k = 0; k < n; k++) {
+      const bx = -15 + (30 * k) / (n - 1) + Math.sin(time * 9 + k * 1.9) * 1.2;
+      const centre = 1 - Math.abs(k - (n - 1) / 2) / ((n - 1) / 2);
+      const flick = 0.7 + 0.3 * Math.sin(time * (13 + k * 1.7) + k * 2.3 + seed) * Math.sin(time * 5.1 + k);
+      const h = (12 + 16 * centre) * flick * (0.45 + 0.55 * heat);
+      const w = 2.6 + 1.8 * centre;
+      const sway = Math.sin(time * 6 + k * 1.3) * h * 0.22;
+      const by = top + 3 + (k === 0 || k === n - 1 ? 3 : 0);
+      const fg = ctx.createLinearGradient(0, by, 0, by - h);
+      fg.addColorStop(0, `rgba(255,220,120,${(0.75 * heat).toFixed(3)})`);
+      fg.addColorStop(0.3, `rgba(255,140,30,${(0.7 * heat).toFixed(3)})`);
+      fg.addColorStop(0.7, `rgba(220,50,15,${(0.5 * heat).toFixed(3)})`);
+      fg.addColorStop(1, 'rgba(160,20,10,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.moveTo(bx - w, by);
+      ctx.quadraticCurveTo(bx - w * 1.1, by - h * 0.5, bx + sway, by - h);
+      ctx.quadraticCurveTo(bx + w * 1.1, by - h * 0.5, bx + w, by);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // embers
+    for (let k = 0; k < 8; k++) {
+      const ph = frac(time * 0.9 + k * 0.37 + seed * 0.21);
+      const x = Math.sin(k * 3.7 + seed) * 13 + Math.sin(time * 4 + k * 2) * 4 * ph + ph * 8;
+      const y = top - ph * 46;
+      ctx.fillStyle = `rgba(255,${(200 - ph * 120) | 0},60,${(heat * (1 - ph)).toFixed(3)})`;
+      ctx.fillRect(x - 0.9, y - 0.9, 1.8, 1.8);
+    }
+    ctx.restore();
+  }
+
   private drawTank(ctx: CanvasRenderingContext2D, t: Tank, i: number) {
     const g = this.game;
     const p = g.players[i];
@@ -258,16 +319,38 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
-    if (t.hitFlash > 0) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = t.hitFlash;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, -10, 22, 0, Math.PI * 2);
+    // Tank outline (treads + hull + dome), used to tint the tank itself instead of drawing a blob around it.
+    const silhouette = (style: string) => {
+      ctx.fillStyle = style;
+      roundRect(ctx, -19, -8, 38, 9, 4.5);
       ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.save();
+      hull();
+      ctx.beginPath();
+      ctx.moveTo(-17, -7);
+      ctx.lineTo(-13, -15);
+      ctx.lineTo(13, -15);
+      ctx.lineTo(18, -7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, pivotY + 1, 8.5, Math.PI, 0);
+      ctx.fill();
+      ctx.restore();
+    };
+    if (t.char > 0.01) silhouette(`rgba(24,14,8,${t.char.toFixed(3)})`);
+    if (t.heat > 0.01) {
+      const flick = 0.75 + 0.25 * Math.sin(time * 23 + i * 3) * Math.sin(time * 7.3);
+      ctx.globalCompositeOperation = 'lighter';
+      silhouette(`rgba(255,80,20,${(t.heat * 0.2 * flick).toFixed(3)})`);
       ctx.globalCompositeOperation = 'source-over';
     }
+    if (t.hitFlash > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      silhouette(`rgba(255,244,220,${(t.hitFlash * 0.85).toFixed(3)})`);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (t.heat > 0.01) this.drawTankFire(ctx, t.heat, time, i, t.bob / TANK_SCALE);
     ctx.restore();
 
     // name tag + turn marker
