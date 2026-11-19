@@ -124,7 +124,7 @@ export function solveShot(game: Game, owner: number, def: ProjectileDef) {
   };
 
   const angles: number[] = [];
-  for (let a = 4; a <= 86; a += 1.5) angles.push(dir > 0 ? a : 180 - a);
+  for (let a = 4; a <= 86; a += 1) angles.push(dir > 0 ? a : 180 - a);
   // Try mid-height arcs first; they clear hills most often.
   angles.sort((a, b) => Math.abs(Math.abs(90 - a) - 40) - Math.abs(Math.abs(90 - b) - 40));
   for (const a of angles) {
@@ -133,7 +133,7 @@ export function solveShot(game: Game, owner: number, def: ProjectileDef) {
   }
   if (best.miss > 0) {
     const base = best.angle;
-    for (let da = -1.4; da <= 1.4 && best.miss > 0; da += 0.1) tryAngle(base + da);
+    for (let da = -3; da <= 3 && best.miss > 0; da += 1) if (da) tryAngle(base + da);
   }
   return best;
 }
@@ -173,14 +173,13 @@ export function planTurn(game: Game, owner: number, level: number, rng: Rng): Pl
     miss = s.miss;
   }
   // Error falls off on a curve: level 1 sprays, level 5 is a coin flip, 8-9 rarely miss, 10 never does.
-  const err = Math.pow((10 - level) / 9, 2);
+  // A dazed CPU aims like a beginner until it has fired once.
+  const err = Math.max(Math.pow((10 - level) / 9, 2), game.players[owner].dazed ? 0.6 : 0);
   if (err > 0) {
     angle += rng.gauss() * err * 6;
     power += rng.gauss() * err * 9;
   }
-  const lo = w.beam ? -60 : 0,
-    hi = w.beam ? 240 : 180;
-  return { weaponIndex, angle: clamp(angle, lo, hi), power: clamp(power, 5, 100), miss };
+  return { weaponIndex, angle: (((Math.round(angle) % 360) + 360) % 360), power: clamp(power, 5, 100), miss };
 }
 
 /** Drives the CPU's turn: think, swing the turret into place, fire. */
@@ -209,12 +208,12 @@ export class CpuController implements Controller {
     }
     const p = g.players[this.owner];
     const k = Math.min(1, dt * 4);
-    const da = this.plan.angle - p.angle,
+    const da = ((this.plan.angle - p.angle + 540) % 360) - 180, // turn the short way round
       dp = this.plan.power - p.power;
     const step = (d: number, max: number) => Math.sign(d) * Math.min(Math.abs(d), Math.max(Math.abs(d) * k, max * dt));
     const close = Math.abs(da) < 0.01 && Math.abs(dp) < 0.01;
     if (!close) {
-      g.apply({ t: 'aim', angle: Math.abs(da) < 0.2 ? this.plan.angle : p.angle + step(da, 40), power: Math.abs(dp) < 0.2 ? this.plan.power : p.power + step(dp, 40) });
+      g.apply({ t: 'aim', angle: Math.abs(da) < 1.5 ? this.plan.angle : p.angle + Math.sign(da) * Math.min(Math.abs(da), Math.max(1, Math.abs(step(da, 40)))), power: Math.abs(dp) < 0.2 ? this.plan.power : p.power + step(dp, 40) });
       return;
     }
     if (this.t > 1.1) {

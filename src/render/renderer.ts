@@ -1,3 +1,8 @@
+import { drawLook, lookOf, pointsForward } from './projectiles';
+
+const SPRITE_SCALE = 1.7;
+/** Share of the sky (from the top of the world) that may be trimmed so the field fills a wide window. */
+const MAX_SKY_CROP = 0.22;
 import { BARREL_LEN, PIVOT_HEIGHT, TANK_SCALE, WORLD_H, WORLD_W } from '../config';
 import { DEG } from '../core/rng';
 import type { Game, Tank } from '../game/game';
@@ -37,9 +42,11 @@ export class Renderer {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = Math.max(1, Math.round(r.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
-    this.scale = Math.min(r.width / WORLD_W, r.height / WORLD_H);
+    // The world is 16:9. A wider window (a maximized desktop window minus the controls bar) used to leave empty
+    // bands at the sides; now the field fills the width and the top of the sky is trimmed instead (at most 22%).
+    this.scale = Math.min(r.width / WORLD_W, r.height / (WORLD_H * (1 - MAX_SKY_CROP)));
     this.ox = (r.width - WORLD_W * this.scale) / 2;
-    this.oy = (r.height - WORLD_H * this.scale) / 2;
+    this.oy = r.width / r.height > WORLD_W / WORLD_H ? r.height - WORLD_H * this.scale : (r.height - WORLD_H * this.scale) / 2;
     // tall screens: sit the battlefield just above the controls, leaving the sky on top for the HUD
     if (r.height > r.width) this.oy = Math.max(this.oy, r.height - WORLD_H * this.scale - 34);
   }
@@ -172,6 +179,67 @@ export class Renderer {
     ctx.globalCompositeOperation = 'source-over';
   }
 
+  /** Fire licking off a burning hull: smoke behind, flame tongues, then rising embers. Tank-local, unscaled units. */
+  private drawTankFire(ctx: CanvasRenderingContext2D, heat: number, time: number, seed: number, bob: number) {
+    const frac = (v: number) => v - Math.floor(v);
+    const top = -14 + bob;
+    ctx.save();
+    // smoke column
+    for (let k = 0; k < 6; k++) {
+      const ph = frac(time * 0.45 + k / 6 + seed * 0.13);
+      const x = Math.sin(k * 2.1 + seed) * 7 + ph * ph * 16 + Math.sin(time * 1.3 + k) * 3;
+      const y = top - 6 - ph * 58;
+      const r = 5 + ph * 15;
+      const a = heat * 0.45 * Math.sin(ph * Math.PI);
+      const sg = ctx.createRadialGradient(x, y, 0, x, y, r);
+      sg.addColorStop(0, `rgba(96,88,84,${a.toFixed(3)})`);
+      sg.addColorStop(1, 'rgba(96,88,84,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'lighter';
+    // warm halo hugging the hull
+    const hg = ctx.createRadialGradient(0, top + 4, 2, 0, top + 2, 30);
+    hg.addColorStop(0, `rgba(255,120,40,${(0.18 * heat).toFixed(3)})`);
+    hg.addColorStop(1, 'rgba(255,60,0,0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(-32, top - 28, 64, 50);
+    // flame tongues
+    const n = 6;
+    for (let k = 0; k < n; k++) {
+      const bx = -15 + (30 * k) / (n - 1) + Math.sin(time * 9 + k * 1.9) * 1.2;
+      const centre = 1 - Math.abs(k - (n - 1) / 2) / ((n - 1) / 2);
+      const flick = 0.7 + 0.3 * Math.sin(time * (13 + k * 1.7) + k * 2.3 + seed) * Math.sin(time * 5.1 + k);
+      const h = (12 + 16 * centre) * flick * (0.45 + 0.55 * heat);
+      const w = 2.6 + 1.8 * centre;
+      const sway = Math.sin(time * 6 + k * 1.3) * h * 0.22;
+      const by = top + 3 + (k === 0 || k === n - 1 ? 3 : 0);
+      const fg = ctx.createLinearGradient(0, by, 0, by - h);
+      fg.addColorStop(0, `rgba(255,220,120,${(0.75 * heat).toFixed(3)})`);
+      fg.addColorStop(0.3, `rgba(255,140,30,${(0.7 * heat).toFixed(3)})`);
+      fg.addColorStop(0.7, `rgba(220,50,15,${(0.5 * heat).toFixed(3)})`);
+      fg.addColorStop(1, 'rgba(160,20,10,0)');
+      ctx.fillStyle = fg;
+      ctx.beginPath();
+      ctx.moveTo(bx - w, by);
+      ctx.quadraticCurveTo(bx - w * 1.1, by - h * 0.5, bx + sway, by - h);
+      ctx.quadraticCurveTo(bx + w * 1.1, by - h * 0.5, bx + w, by);
+      ctx.closePath();
+      ctx.fill();
+    }
+    // embers
+    for (let k = 0; k < 8; k++) {
+      const ph = frac(time * 0.9 + k * 0.37 + seed * 0.21);
+      const x = Math.sin(k * 3.7 + seed) * 13 + Math.sin(time * 4 + k * 2) * 4 * ph + ph * 8;
+      const y = top - ph * 46;
+      ctx.fillStyle = `rgba(255,${(200 - ph * 120) | 0},60,${(heat * (1 - ph)).toFixed(3)})`;
+      ctx.fillRect(x - 0.9, y - 0.9, 1.8, 1.8);
+    }
+    ctx.restore();
+  }
+
   private drawTank(ctx: CanvasRenderingContext2D, t: Tank, i: number) {
     const g = this.game;
     const p = g.players[i];
@@ -258,17 +326,60 @@ export class Renderer {
     ctx.stroke();
     ctx.restore();
 
-    if (t.hitFlash > 0) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = t.hitFlash;
-      ctx.fillStyle = '#ffffff';
-      ctx.beginPath();
-      ctx.arc(0, -10, 22, 0, Math.PI * 2);
+    // Tank outline (treads + hull + dome), used to tint the tank itself instead of drawing a blob around it.
+    const silhouette = (style: string) => {
+      ctx.fillStyle = style;
+      roundRect(ctx, -19, -8, 38, 9, 4.5);
       ctx.fill();
-      ctx.globalAlpha = 1;
+      ctx.save();
+      hull();
+      ctx.beginPath();
+      ctx.moveTo(-17, -7);
+      ctx.lineTo(-13, -15);
+      ctx.lineTo(13, -15);
+      ctx.lineTo(18, -7);
+      ctx.closePath();
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, pivotY + 1, 8.5, Math.PI, 0);
+      ctx.fill();
+      ctx.restore();
+    };
+    if (t.char > 0.01) silhouette(`rgba(24,14,8,${t.char.toFixed(3)})`);
+    if (t.heat > 0.01) {
+      const flick = 0.75 + 0.25 * Math.sin(time * 23 + i * 3) * Math.sin(time * 7.3);
+      ctx.globalCompositeOperation = 'lighter';
+      silhouette(`rgba(255,80,20,${(t.heat * 0.2 * flick).toFixed(3)})`);
       ctx.globalCompositeOperation = 'source-over';
     }
+    if (t.hitFlash > 0) {
+      ctx.globalCompositeOperation = 'lighter';
+      silhouette(`rgba(255,244,220,${(t.hitFlash * 0.85).toFixed(3)})`);
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    if (t.heat > 0.01) this.drawTankFire(ctx, t.heat, time, i, t.bob / TANK_SCALE);
     ctx.restore();
+
+    // dazed by a Brain Fog: little stars circling over the turret
+    if (p.dazed) {
+      ctx.save();
+      for (let k = 0; k < 4; k++) {
+        const a = time * 3 + (k * Math.PI) / 2;
+        const sx = t.x + Math.cos(a) * 16,
+          sy = t.y - 40 + Math.sin(a) * 5;
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(a);
+        ctx.fillStyle = k % 2 ? '#ff7ae6' : '#fff2a8';
+        ctx.beginPath();
+        for (let j = 0; j < 10; j++) {
+          const rr = j % 2 ? 1.6 : 4;
+          const aa = (j / 10) * Math.PI * 2 - Math.PI / 2;
+          ctx.lineTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
 
     // name tag + turn marker
     ctx.save();
@@ -324,7 +435,8 @@ export class Renderer {
       const d = p.def;
       const r = d.radius ?? 3.5;
       const y = p.mode === 'roll' ? p.y - r : p.y;
-      if (d.fuse !== undefined) {
+      const look = lookOf(d);
+      if (d.fuse !== undefined && d.fuse >= 2) {
         // Countdown above a fused grenade, blinking faster as it runs out.
         const left = Math.max(0, d.fuse - p.age);
         const blink = Math.sin(this.fx.time * (8 + (d.fuse - left) * 6)) > 0;
@@ -343,30 +455,32 @@ export class Renderer {
       const grd = ctx.createRadialGradient(p.x, y, 0, p.x, y, r * 4);
       grd.addColorStop(0, glow);
       grd.addColorStop(1, 'rgba(0,0,0,0)');
-      ctx.globalAlpha = 0.55;
+      ctx.globalAlpha = look === 'orb' ? 0.6 : 0.3;
       ctx.fillStyle = grd;
       ctx.fillRect(p.x - r * 4, y - r * 4, r * 8, r * 8);
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = 'source-over';
-      ctx.fillStyle = d.color;
-      ctx.beginPath();
-      ctx.arc(p.x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.8)';
-      ctx.beginPath();
-      ctx.arc(p.x - r * 0.3, y - r * 0.3, r * 0.4, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.save();
+      ctx.translate(p.x, y);
+      if (pointsForward(look)) ctx.rotate(Math.atan2(p.vy, p.vx));
+      else if (look === 'ball' || look === 'clod') ctx.rotate(p.x / Math.max(2, r * 1.2)); // rolls with distance
+      else if (look === 'crawler') ctx.scale(p.bdx < 0 ? -1 : 1, 1);
+      else if (p.mode === 'fly') ctx.rotate(p.age * (look === 'kernel' ? 9 : 5) * (p.vx < 0 ? -1 : 1)); // tumbling
+      ctx.scale(SPRITE_SCALE, SPRITE_SCALE); // sprites read larger than their hit size
+      drawLook(ctx, look, d, r, this.fx.time + p.id);
+      ctx.restore();
     }
   }
 
   /** Markers for shells above the top of the screen: drawn below the HUD, shrinking as the shell climbs. */
   private drawOffscreen(ctx: CanvasRenderingContext2D) {
+    const top = Math.max(0, -this.oy / this.scale); // world y at the top edge of the screen
     for (const p of this.game.projectiles) {
-      if (p.y >= -4) continue;
-      const h = Math.round(-p.y);
+      if (p.y >= top - 4) continue;
+      const h = Math.round(top - p.y);
       const k = Math.max(0.55, 1 - h / 1600);
       ctx.save();
-      ctx.translate(Math.max(20, Math.min(WORLD_W - 20, p.x)), 140);
+      ctx.translate(Math.max(20, Math.min(WORLD_W - 20, p.x)), top + 140);
       ctx.scale(k * 1.6, k * 1.6);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.5;

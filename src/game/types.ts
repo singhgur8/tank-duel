@@ -5,7 +5,7 @@
  */
 
 export type TrailStyle = 'smoke' | 'fire' | 'spark' | 'plasma' | 'dirt' | 'ice' | 'none';
-export type ExplosionStyle = 'small' | 'standard' | 'big' | 'nuke' | 'plasma' | 'fire' | 'dirt' | 'ice' | 'acid';
+export type ExplosionStyle = 'small' | 'standard' | 'big' | 'nuke' | 'plasma' | 'fire' | 'dirt' | 'ice' | 'acid' | 'void';
 
 export type Action =
   /** Blast that removes terrain and damages tanks inside `radius`. */
@@ -15,8 +15,8 @@ export type Action =
       type: 'spawn';
       count: number;
       spreadDeg: number;
-      /** 'forward' = up and onward in the parent's horizontal direction (hops). */
-      direction?: 'velocity' | 'up' | 'down' | 'forward';
+      /** 'forward' = up and onward in the parent's horizontal direction (hops). 'mirror' = the parent's velocity flipped left/right. */
+      direction?: 'velocity' | 'up' | 'down' | 'forward' | 'mirror';
       /** Absolute speed in px/s. Omit to keep the parent's speed. */
       speed?: number;
       /** Random +/- fraction applied to each child's speed. */
@@ -51,10 +51,30 @@ export type Action =
   | { type: 'lottery'; chance: number; hit: Action[]; miss: Action[] }
   /** Run one of the option lists, chosen at random. */
   | { type: 'random'; options: Action[][] }
+  /** Run `actions` at the same spot `time` seconds later (the turn waits for it). */
+  | { type: 'delay'; time: number; actions: Action[] }
+  /** Visual only: energy gathering into the point for `time` seconds. */
+  | { type: 'charge'; radius: number; time: number; color: string }
+  /** Take up to `points` from every other tank within `radius` and give them to the shooter. */
+  | { type: 'steal'; radius: number; points: number }
+  /** Swap places with the nearest other tank within `radius` of the point. */
+  | { type: 'swap'; radius: number }
+  /** Beam straight down from the sky: cuts a trench `depth` px deep and damages tanks within `width`/2 horizontally. */
+  | { type: 'column'; width: number; damage: number; depth: number; color: string }
+  /** Lay springy rubber: a standing wall, or a coat over the ground surface. Shots bounce off it; small blasts can't break it. */
+  | { type: 'rubber'; shape: 'wall' | 'coat' | 'cup' | 'ramp'; width: number; height: number }
+  /** Dump a ball of white snow. It piles up and stays like dirt (it can be blown away like dirt too). */
+  | { type: 'snow'; radius: number }
+  /** Fog the minds of enemy tanks within `radius`: their angle and power are scrambled for their next turn. */
+  | { type: 'scramble'; radius: number }
   /** Extra camera shake. */
   | { type: 'shake'; amount: number };
 
+/** How a projectile is drawn. Left out, it is picked from what the projectile does (see render/projectiles.ts). */
+export type ProjectileLook = 'shell' | 'grenade' | 'bomb' | 'missile' | 'orb' | 'ball' | 'pellet' | 'canister' | 'clod' | 'drill' | 'kernel' | 'crawler';
+
 export interface ProjectileDef {
+  look?: ProjectileLook;
   radius?: number; // drawn size
   color: string;
   glow?: string;
@@ -69,6 +89,8 @@ export interface ProjectileDef {
   /** Share of the along-the-surface speed lost on each bounce (0..1, default 0.12). */
   friction?: number;
   onBounce?: Action[];
+  /** Rolling only: keep oozing downhill until the ground is level (mud). */
+  flow?: boolean;
   /** After touching ground, roll along the surface and detonate when stopped or blocked. */
   roll?: { maxTime: number };
   /** After touching ground, keep travelling through it, carving a tunnel. onImpact runs at the end. */
@@ -84,6 +106,8 @@ export interface ProjectileDef {
   crawl?: { speed: number; time: number };
   /** Horizontal pull back toward the shooter (px/s²): the shot curves back like a boomerang. */
   pull?: number;
+  /** Fly straight through terrain (only tanks, a fuse or proximity stop it). */
+  phase?: boolean;
   /** Leave the whole flight path on screen until the next shot (for sighting shots). */
   tracer?: boolean;
   /** Remove the projectile after its apex actions (children carry on). */
@@ -109,7 +133,7 @@ export interface WeaponDef {
   icon?: string;
   /** Either a projectile or a beam. */
   projectile?: ProjectileDef;
-  /** Beams can also aim below the horizon (angle range widens to BEAM_ANGLE_MIN..BEAM_ANGLE_MAX). */
+  /** A straight beam instead of a projectile. */
   beam?: BeamDef;
   /** Several projectiles per shot: fanned by spreadDeg, optionally staggered by delay seconds. */
   volley?: { count: number; spreadDeg: number; delay?: number };

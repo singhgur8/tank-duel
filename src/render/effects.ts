@@ -123,6 +123,7 @@ const PALETTE: Record<ExplosionStyle, { core: string; mid: string; outer: string
   dirt: { core: '#e8d2a8', mid: '#a9825a', outer: '#6b4a2b', smoke: '#6e5a45', spark: '#d9b98a' },
   ice: { core: '#ffffff', mid: '#c9f6ff', outer: '#59c8ff', smoke: '#9ab8cc', spark: '#e8fdff' },
   acid: { core: '#f4ffd6', mid: '#a6ff4d', outer: '#3fbf1f', smoke: '#2c3a22', spark: '#c8ff7a' },
+  void: { core: '#f4ecff', mid: '#9b5cff', outer: '#3a1470', smoke: '#160b28', spark: '#d2b8ff' },
 };
 
 interface Bolt {
@@ -394,17 +395,17 @@ export class Effects implements Fx {
   }
 
   damage(x: number, y: number, amount: number, color: string) {
-    if (amount < 1) return;
+    if (Math.abs(amount) < 1) return; // negative = points lost for hurting yourself
     // Rapid hits on the same tank (cascades, volleys) add up into one growing number instead of a pile-up.
     const near = this.popups.find((p) => p.color === color && p.max - p.life < 0.7 && Math.abs(p.x - x) < 50 && Math.abs(p.y - y) < 60);
     if (near) {
       near.amount += amount;
-      near.text = `+${Math.round(near.amount)}`;
-      near.big = near.amount >= 40;
+      near.text = `${near.amount < 0 ? '−' : '+'}${Math.round(Math.abs(near.amount))}`;
+      near.big = Math.abs(near.amount) >= 40;
       near.life = near.max;
       return;
     }
-    this.popups.push({ x, y, text: `+${Math.round(amount)}`, color, life: 1.6, max: 1.6, big: amount >= 40, amount });
+    this.popups.push({ x, y, text: `${amount < 0 ? '−' : '+'}${Math.round(Math.abs(amount))}`, color, life: 1.6, max: 1.6, big: Math.abs(amount) >= 40, amount });
   }
 
   tankLand(x: number, y: number, speed: number) {
@@ -460,6 +461,26 @@ export class Effects implements Fx {
     this.flashColor = '#dceeff';
     this.addTrauma(0.45);
     this.audio.thunder();
+  }
+
+  /** Energy gathering into a point: motes spiral in and rings tighten for `time` seconds. */
+  charge(x: number, y: number, radius: number, time: number, color: string) {
+    const n = Math.round(30 + radius * 0.3);
+    for (let i = 0; i < n; i++) {
+      const a = R() * Math.PI * 2;
+      const r = radius * rr(0.6, 1.1);
+      const life = rr(0.35, 0.6);
+      const delay = rr(0, Math.max(0, time - life));
+      // aim slightly off-centre so the motes swirl as they fall in
+      const sw = a + 0.5;
+      this.add({ k: K.Glow, x: x + Math.cos(a) * r, y: y + Math.sin(a) * r, vx: -Math.cos(sw) * (r / life), vy: -Math.sin(sw) * (r / life), life, max: 0, s0: rr(3, 6), s1: 1, color: i % 3 ? color : '#ffffff', drag: 0, grav: 0, delay });
+    }
+    for (let k = 0; k < Math.max(2, Math.round(time / 0.3)); k++) {
+      const life = 0.45;
+      this.rings.push({ x, y, r0: radius, r1: 4, life: life + k * 0.3, max: life + k * 0.3, color, width: 2 });
+    }
+    this.lights.push({ x, y, r: radius * 1.4, color, life: time, max: time, a: 0.8 });
+    this.audio.small();
   }
 
   quake(x: number, y: number, radius: number) {

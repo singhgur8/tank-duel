@@ -118,6 +118,8 @@ function startGame(opts: GameOptions) {
   for (const id of ['#menu', '#gameover', '#pause', '#picker', '#draft', '#arsenal']) $(id).classList.add('hidden');
   $('#p2card').classList.toggle('hidden', opts.players.length < 3);
   document.body.classList.toggle('three', opts.players.length > 2);
+  document.body.classList.toggle('four', opts.players.length > 3);
+  $('#p3card').classList.toggle('hidden', opts.players.length < 4);
   hudCache.clear();
 }
 
@@ -139,8 +141,8 @@ function act(a: string, fine = false) {
   const k = fine ? 0.2 : 1;
   const p = game.player;
   switch (a) {
-    case 'a+': return nudge(k, 0);
-    case 'a-': return nudge(-k, 0);
+    case 'a+': return nudge(1, 0);
+    case 'a-': return nudge(-1, 0);
     case 'p+': return nudge(0, k);
     case 'p-': return nudge(0, -k);
     case 'wprev': if (p.weapons.length) { send({ t: 'weapon', index: (p.selected - 1 + p.weapons.length) % p.weapons.length }); audio.click(); } return;
@@ -169,6 +171,58 @@ document.querySelectorAll<HTMLButtonElement>('#controls .step').forEach((b) => {
   for (const ev of ['pointerup', 'pointerleave', 'pointercancel']) b.addEventListener(ev, stop);
 });
 
+// Angle and power: a slider under each readout, and the readout itself takes typed numbers.
+function syncDial(name: 'angle' | 'power', v: number, min: number, max: number, label: string) {
+  const range = $<HTMLInputElement>(`#${name}-range`);
+  const box = $<HTMLInputElement>(`#${name}-val`);
+  if (range.min !== String(min)) range.min = String(min);
+  if (range.max !== String(max)) range.max = String(max);
+  if (document.activeElement !== range && Number(range.value) !== v) range.value = String(v);
+  range.parentElement!.style.setProperty('--pct', String(Math.max(0, Math.min(1, (v - min) / (max - min)))));
+  if (document.activeElement !== box && box.value !== label) box.value = label;
+}
+function setAim(angle: number, power: number) {
+  if (!game) return;
+  send({ t: 'aim', angle: Math.round(angle * 10) / 10, power: Math.round(power * 10) / 10 });
+}
+for (const name of ['angle', 'power'] as const) {
+  const range = $<HTMLInputElement>(`#${name}-range`);
+  range.addEventListener('input', () => {
+    if (!game) return;
+    audio.unlock();
+    const v = Number(range.value);
+    if (name === 'angle') setAim(v, game.player.power);
+    else setAim(game.player.angle, v);
+  });
+  const box = $<HTMLInputElement>(`#${name}-val`);
+  box.addEventListener('focus', () => {
+    if (!human()) return box.blur();
+    box.value = box.value.replace('°', '');
+    box.select();
+  });
+  const commit = () => {
+    if (!game) return;
+    const v = parseFloat(box.value.replace(',', '.'));
+    if (Number.isFinite(v)) {
+      if (name === 'angle') setAim(v, game.player.power);
+      else setAim(game.player.angle, v);
+    }
+    hudCache.clear();
+  };
+  box.addEventListener('change', commit);
+  box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      commit();
+      box.blur();
+    } else if (e.key === 'Escape') {
+      hudCache.clear();
+      box.blur();
+    }
+    e.stopPropagation();
+  });
+  box.addEventListener('blur', () => hudCache.clear());
+}
+
 function fire() {
   audio.unlock();
   send({ t: 'fire' });
@@ -194,7 +248,7 @@ function aimAt(e: PointerEvent) {
   const dx = w.x - pv.x,
     dy = pv.y - w.y;
   let ang = (Math.atan2(dy, dx) * 180) / Math.PI;
-  if (ang < -90) ang += 360; // game clamps to the weapon's allowed range
+  if (ang < 0) ang += 360; // full circle
   const power = clamp((Math.hypot(dx, dy) - 30) / 2.6, 5, 100);
   send({ t: 'aim', angle: Math.round(ang * 10) / 10, power: Math.round(power) });
 }
@@ -327,7 +381,8 @@ function updateHud() {
   g.players.forEach((p, i) => {
     const card = `#p${i}card`;
     setText(`${card} .pname`, p.name);
-    const sc = String(Math.round(p.score));
+    const sc = Math.round(p.score) < 0 ? `−${-Math.round(p.score)}` : String(Math.round(p.score));
+    $(`${card} .pscore`).classList.toggle('neg', Math.round(p.score) < 0);
     if (hudCache.get(`${card} .pscore`) !== sc && hudCache.has(`${card} .pscore`)) {
       const el = $(`${card} .pscore`);
       el.classList.remove('bump');
@@ -347,9 +402,11 @@ function updateHud() {
   setText('#turn-info', g.phase === 'gameover' ? 'Game over' : `Turn ${g.turn} · ${g.player.name}`);
 
   const p = g.player;
-  const wpn = g.currentWeapon;
+  // While a shot is flying, keep showing the weapon that was fired until everything has settled.
+  const inFlight = g.phase === 'flight' && !!g.lastWeapon;
+  const wpn = inFlight ? g.lastWeapon : g.currentWeapon;
   setText('#weapon-name', wpn ? wpn.name : 'No weapons');
-  setText('#weapon-count', p.weapons.length ? `${p.selected + 1} of ${p.weapons.length}` : '');
+  setText('#weapon-count', inFlight ? 'fired' : p.weapons.length ? `${p.selected + 1} of ${p.weapons.length}` : '');
   const icon = $<HTMLImageElement>('#weapon-icon');
   const src = wpn ? weaponIcon(wpn) : '';
   if (icon.dataset.k !== (wpn?.id ?? '')) {
@@ -357,8 +414,9 @@ function updateHud() {
     if (src) icon.src = src;
     icon.style.visibility = src ? 'visible' : 'hidden';
   }
-  setText('#angle-val', `${Math.round(p.angle * 10) / 10}°`);
-  setText('#power-val', `${Math.round(p.power)}`);
+  const [amin, amax] = g.angleRange();
+  syncDial('angle', p.angle, amin, amax, `${Math.round(p.angle)}°`);
+  syncDial('power', p.power, 5, 100, `${Math.round(p.power)}`);
   setText('#moves-left', `${p.moves}`);
   $('#controls').classList.toggle('disabled', !human());
   $('#cpu-thinking').classList.toggle('hidden', !(g.phase === 'aim' && g.player.cpuLevel));
@@ -409,7 +467,7 @@ function showRoundResult(g: Game) {
   }
   $('#go-title').textContent = title;
   $('#go-title').style.color = color;
-  $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score)}</b></div>`).join('');
+  $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score) < 0 ? '−' + -Math.round(pl.score) : Math.round(pl.score)}</b></div>`).join('');
   $('#go-match').textContent = m && rounds > 1 ? `Rounds won: ${g.players.map((pl, i) => `${pl.name} ${m.wins[i]}`).join(' · ')}` : '';
   $('#next-btn').classList.toggle('hidden', over);
   $('#rematch-btn').classList.toggle('hidden', !over);

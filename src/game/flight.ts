@@ -1,4 +1,4 @@
-import { DT, GRAVITY, MAX_SPEED, WIND_ACCEL, WORLD_W, BARREL_LEN, PIVOT_HEIGHT, TANK_HIT_RADIUS } from '../config';
+import { DT, GRAVITY, MAX_SPEED, WIND_ACCEL, WORLD_W, WORLD_H, BARREL_LEN, PIVOT_HEIGHT, TANK_HIT_RADIUS } from '../config';
 import { DEG } from '../core/rng';
 import type { Terrain } from '../core/terrain';
 import type { ProjectileDef } from './types';
@@ -29,6 +29,8 @@ export interface FlightCtx {
   owner: number;
   /** Default 0.12 s: long enough for a shell to clear its own barrel. */
   skipTime?: number;
+  /** Who fired it: homing never picks this tank as its target. Defaults to `owner`. */
+  shooter?: number;
 }
 
 export type FlightHit =
@@ -45,7 +47,10 @@ export function muzzle(t: TankLike, angleDeg: number) {
 }
 
 export function launchVelocity(angleDeg: number, power: number, def?: ProjectileDef) {
-  const sp = (power / 100) * MAX_SPEED * (def?.speedScale ?? 1);
+  // Speed climbs steeply near the top of the range: low and mid power lob as before, while 100 power is about
+  // 2.6x faster, so it flies almost straight with very little drop.
+  const f = power / 100;
+  const sp = f * (1 + 1.6 * f ** 4) * MAX_SPEED * (def?.speedScale ?? 1);
   return { vx: Math.cos(angleDeg * DEG) * sp, vy: -Math.sin(angleDeg * DEG) * sp };
 }
 
@@ -90,7 +95,7 @@ export function nearestEnemy(ctx: FlightCtx, x: number, y: number) {
   let best = -1,
     bd = Infinity;
   ctx.tanks.forEach((t, i) => {
-    if (i === ctx.owner) return;
+    if (i === (ctx.shooter ?? ctx.owner)) return;
     const d = Math.hypot(t.x - x, t.y - y);
     if (d < bd) {
       bd = d;
@@ -137,7 +142,7 @@ export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): 
       tankI = i;
     }
   }
-  const th = marchTerrain(ctx.terrain, p.x, p.y, nx, ny);
+  const th = def.phase ? null : marchTerrain(ctx.terrain, p.x, p.y, nx, ny);
   p.age += dt;
   if (tankI >= 0 && (!th || tankT <= th.f)) {
     p.x = p.x + (nx - p.x) * tankT;
@@ -151,6 +156,6 @@ export function flightStep(p: FlightState, def: ProjectileDef, ctx: FlightCtx): 
   }
   p.x = nx;
   p.y = ny;
-  if (p.x < -60 || p.x > WORLD_W + 60) return { kind: 'out' };
+  if (p.x < -60 || p.x > WORLD_W + 60 || p.y > WORLD_H + 40) return { kind: 'out' };
   return null;
 }

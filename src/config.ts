@@ -6,7 +6,7 @@ export const WORLD_H = 900;
 export const DT = 1 / 120;
 
 export const GRAVITY = 420; // px/s^2
-export const MAX_SPEED = 980; // muzzle speed at power 100
+export const MAX_SPEED = 980; // base muzzle speed; launchVelocity boosts the top of the power range (100 power is ~2.6x this)
 export const WIND_ACCEL = 5.5; // px/s^2 per wind unit
 export const MAX_WIND = 10;
 
@@ -25,9 +25,7 @@ export const MOVE_SPEED = 75;
 export const MAX_CLIMB_PER_PX = 2.2; // steepest slope a tank can drive up
 
 export const ANGLE_MIN = 0;
-export const ANGLE_MAX = 180;
-export const BEAM_ANGLE_MIN = -60;
-export const BEAM_ANGLE_MAX = 240;
+export const ANGLE_MAX = 359;
 /** Most burn damage per second a tank can take from napalm, however many flames touch it. */
 export const MAX_BURN_DPS = 16;
 

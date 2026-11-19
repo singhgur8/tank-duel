@@ -8,6 +8,7 @@
   --p0: #38c6ff;
   --p1: #ff7a3d;
   --p2: #d77bff;
+  --p3: #ffd84a;
   --accent: #ffcc4d;
   --fire: #ff4d2e;
   --steel-hi: #2a3140;
@@ -41,6 +42,8 @@ button { cursor: pointer; }
 #p0card.active { box-shadow: 0 0 0 2px var(--p0), 0 0 24px rgba(56,198,255,.45); }
 #p1card.active { box-shadow: 0 0 0 2px var(--p1), 0 0 24px rgba(255,122,61,.45); }
 #p2card .pname { color: var(--p2); }
+#p3card .pname { color: var(--p3); }
+#p3card.active { box-shadow: 0 0 0 2px var(--p3), 0 0 24px rgba(255,216,74,.45); }
 #p2card.active { box-shadow: 0 0 0 2px var(--p2), 0 0 24px rgba(215,123,255,.45); }
 .plates { display: flex; gap: 8px; align-items: flex-start; min-width: 0; }
 .pscore.bump { animation: bump .45s ease-out; }
@@ -229,6 +232,9 @@ h2 { margin: 0 0 6px; }
 #hand0.picking { border-color: var(--p0); box-shadow: 0 0 20px rgba(56,198,255,.25); }
 #hand1.picking { border-color: var(--p1); box-shadow: 0 0 20px rgba(255,122,61,.25); }
 #hand2 h3 { color: var(--p2); }
+#hand3 h3 { color: var(--p3); }
+#hand3.picking { border-color: var(--p3); box-shadow: 0 0 20px rgba(255,216,74,.25); }
+.hands-left { display: flex; flex-direction: column; gap: 12px; }
 #hand2.picking { border-color: var(--p2); box-shadow: 0 0 20px rgba(215,123,255,.25); }
 .hands-right { display: flex; flex-direction: column; gap: 12px; }
 .hand-list { display: flex; flex-direction: column; gap: 4px; }
@@ -302,6 +308,7 @@ h2 { margin: 0 0 6px; }
 .seat[data-seat="0"] .dot { color: var(--p0); }
 .seat[data-seat="1"] .dot { color: var(--p1); }
 .seat[data-seat="2"] .dot { color: var(--p2); }
+.seat[data-seat="3"] .dot { color: var(--p3); }
 .seat input { min-width: 0; width: 100%; }
 .seat select { width: 104px; }
 @media (orientation: portrait) and (max-width: 700px) {
@@ -310,3 +317,39 @@ h2 { margin: 0 0 6px; }
   body.three #wind-val { min-width: 38px; }
   body.three .plate .pscore { font-size: 16px; padding: 2px 6px; }
 }
+
+/* ── angle / power sliders: a wedge that thickens toward the high end, with a thumb that grows with the value ── */
+.dial input.lcd { border: 0; outline: none; width: 0; min-width: 64px; cursor: text; }
+.dial input.lcd:focus { box-shadow: inset 0 2px 4px rgba(0,0,0,.9), 0 0 0 2px var(--lcd); }
+.slider { --pct: .5; position: relative; height: 24px; margin: 0 2px; }
+.slider .wedge { position: absolute; left: 0; right: 0; top: 2px; bottom: 2px; clip-path: polygon(0 42%, 100% 0, 100% 100%, 0 58%);
+  background: linear-gradient(90deg, var(--fill-a) 0, var(--fill-b) calc(var(--pct) * 100%), rgba(255,255,255,.1) calc(var(--pct) * 100%), rgba(255,255,255,.14) 100%); }
+.slider.angle { --fill-a: #1f7fb0; --fill-b: #7fe3ff; }
+.slider.power { --fill-a: #2fbf5a; --fill-b: hsl(calc(130 - var(--pct) * 130) 95% 58%); }
+.slider input[type=range] { -webkit-appearance: none; appearance: none; position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; background: transparent; cursor: pointer; touch-action: none; }
+.slider input[type=range]:focus { outline: none; }
+.slider input[type=range]::-webkit-slider-runnable-track { height: 100%; background: transparent; }
+.slider input[type=range]::-moz-range-track { height: 100%; background: transparent; }
+.slider input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: calc(12px + var(--pct) * 12px); height: calc(12px + var(--pct) * 12px); margin-top: calc((24px - (12px + var(--pct) * 12px)) / 2); border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff, var(--fill-b) 70%); border: 2px solid #0b0e14; box-shadow: 0 0 calc(4px + var(--pct) * 10px) var(--fill-b); }
+.slider input[type=range]::-moz-range-thumb { width: calc(12px + var(--pct) * 12px); height: calc(12px + var(--pct) * 12px); border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #ffffff, var(--fill-b) 70%); border: 2px solid #0b0e14; box-shadow: 0 0 calc(4px + var(--pct) * 10px) var(--fill-b); }
+@media (max-height: 520px) and (orientation: landscape) {
+  .slider { height: 18px; }
+  .slider input[type=range]::-webkit-slider-thumb { width: calc(10px + var(--pct) * 8px); height: calc(10px + var(--pct) * 8px); margin-top: calc((18px - (10px + var(--pct) * 8px)) / 2); }
+  .dial input.lcd { min-width: 42px; }
+  .dial { gap: 3px; }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  .dial input.lcd { min-width: 0; }
+}
+@media (orientation: portrait) and (max-width: 700px) {
+  body.four #hud-top { gap: 4px; left: 4px; right: 4px; }
+  body.four .plates { gap: 4px; }
+  body.four .plate { padding: 4px 5px; }
+  body.four .plate .pname { font-size: 9px; }
+  body.four .plate .pscore { font-size: 14px; padding: 1px 4px; }
+  body.four #wind-bar { display: none; }
+}
+
+.pscore.neg { color: #ff6a6a !important; }

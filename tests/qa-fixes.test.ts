@@ -42,6 +42,13 @@ describe('QA fixes', () => {
     expect(g.terrain.solid(t.x, t.y - 20)).toBe(true);
   });
 
+  it('angles are whole degrees for people and CPUs', () => {
+    const g = mk(3);
+    g.apply({ t: 'aim', angle: 33.5, power: 60 });
+    expect(Number.isInteger(g.player.angle)).toBe(true);
+    for (let s = 1; s <= 10; s++) for (const lvl of [1, 5, 10]) expect(Number.isInteger(planTurn(mk(s), 1, lvl, new Rng(s)).angle)).toBe(true);
+  });
+
   it('laser can aim down at a lower target', () => {
     let hits = 0;
     for (let s = 1; s <= 10; s++) {
