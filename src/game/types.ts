@@ -62,7 +62,9 @@ export type Action =
   /** Beam straight down from the sky: cuts a trench `depth` px deep and damages tanks within `width`/2 horizontally. */
   | { type: 'column'; width: number; damage: number; depth: number; color: string }
   /** Lay springy rubber: a standing wall, or a coat over the ground surface. Shots bounce off it; small blasts can't break it. */
-  | { type: 'rubber'; shape: 'wall' | 'coat'; width: number; height: number }
+  | { type: 'rubber'; shape: 'wall' | 'coat' | 'cup' | 'ramp'; width: number; height: number }
+  /** Dump a ball of white snow. It piles up and stays like dirt (it can be blown away like dirt too). */
+  | { type: 'snow'; radius: number }
   /** Fog the minds of enemy tanks within `radius`: their angle and power are scrambled for their next turn. */
   | { type: 'scramble'; radius: number }
   /** Extra camera shake. */
@@ -87,6 +89,8 @@ export interface ProjectileDef {
   /** Share of the along-the-surface speed lost on each bounce (0..1, default 0.12). */
   friction?: number;
   onBounce?: Action[];
+  /** Rolling only: keep oozing downhill until the ground is level (mud). */
+  flow?: boolean;
   /** After touching ground, roll along the surface and detonate when stopped or blocked. */
   roll?: { maxTime: number };
   /** After touching ground, keep travelling through it, carving a tunnel. onImpact runs at the end. */

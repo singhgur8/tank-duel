@@ -6,7 +6,7 @@ export const WORLD_H = 900;
 export const DT = 1 / 120;
 
 export const GRAVITY = 420; // px/s^2
-export const MAX_SPEED = 980; // muzzle speed at power 100
+export const MAX_SPEED = 980; // base muzzle speed; launchVelocity boosts the top of the power range (100 power is ~2.6x this)
 export const WIND_ACCEL = 5.5; // px/s^2 per wind unit
 export const MAX_WIND = 10;
 

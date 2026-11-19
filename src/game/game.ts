@@ -489,8 +489,8 @@ export class Game {
       const n = this.terrain.normalAt(hit.x, hit.y);
       const vn = p.vx * n.nx + p.vy * n.ny;
       if (vn < 0) {
-        p.vx -= 1.85 * vn * n.nx;
-        p.vy -= 1.85 * vn * n.ny;
+        p.vx -= 1.6 * vn * n.nx;
+        p.vy -= 1.6 * vn * n.ny;
       }
       p.x = hit.ax + n.nx;
       p.y = hit.ay + n.ny;
@@ -573,7 +573,7 @@ export class Game {
     if (crawl) p.rollV = p.bdx * crawl.speed;
     else {
       p.rollV += (GRAVITY * sl) / Math.sqrt(1 + sl * sl) * dt * 0.9;
-      p.rollV *= 1 - 0.5 * dt;
+      p.rollV *= 1 - (p.def.flow ? 2.2 : 0.5) * dt; // mud is sticky: it oozes rather than overshooting
     }
     const nx = p.x + p.rollV * dt;
     if (nx < 0 || nx >= WORLD_W) {
@@ -597,8 +597,10 @@ export class Game {
           p.rollV *= -0.8; // rolled into rubber: springs back
           return;
         }
-        if (p.def.fuse !== undefined) {
-          p.rollV *= -0.4; // a fused grenade bounces off the wall and keeps ticking
+        // Slow mud that meets a wall piles up against it; anything past its time limit stops.
+        if (p.def.flow && (Math.abs(p.rollV) < 20 || p.rollTime > (p.def.roll?.maxTime ?? 6))) return this.impact(p, p.x, p.y - 3, -1);
+        if (p.def.fuse !== undefined || p.def.flow) {
+          p.rollV *= -0.4; // a fused grenade bounces off the wall and keeps ticking; mud oozes back
           return;
         }
         return this.impact(p, p.x, p.y - 3, -1); // wall
@@ -628,7 +630,9 @@ export class Game {
       if (p.rollTime > crawl.time) this.impact(p, p.x, p.y - 3, -1);
       return;
     }
-    if ((Math.abs(p.rollV) < 8 && p.rollTime > 0.5) || p.rollTime > (p.def.roll?.maxTime ?? 6)) this.impact(p, p.x, p.y - 3, -1);
+    // Mud keeps oozing until it reaches level ground; everything else stops when it slows down.
+    const settled = Math.abs(p.rollV) < 8 && p.rollTime > 0.5 && (!p.def.flow || Math.abs(sl) < 0.12);
+    if (settled || p.rollTime > (p.def.roll?.maxTime ?? 6)) this.impact(p, p.x, p.y - 3, -1);
   }
 
   private stepBurrow(p: Projectile) {
@@ -694,6 +698,11 @@ export class Game {
       case 'dirt':
         this.terrain.fillCircle(x, y, a.radius);
         this.fx.dirt(x, y, a.radius);
+        return;
+      case 'snow':
+        // Snow settles into a drift on the surface rather than a ball.
+        this.terrain.addMound(x, a.radius * 2.6, a.radius * 0.95, true);
+        this.fx.explosion(x, y, Math.min(24, a.radius * 0.6), 'ice', 0);
         return;
       case 'mound':
         this.terrain.addMound(x, a.width, a.height);
@@ -762,7 +771,16 @@ export class Game {
       case 'rubber': {
         const g = this.terrain.surfaceBelow(x, Math.max(0, y - 30));
         if (a.shape === 'wall') this.terrain.addRubber(x - a.width / 2, g - a.height, x + a.width / 2, g + 6);
-        else
+        else if (a.shape === 'cup') {
+          // A V of two rubber arms with a gap at the bottom: shots that drop in rattle down to the throat.
+          const throat = 10;
+          this.terrain.addRubberLine(x - throat, g + 2, x - a.width / 2, g - a.height, 9);
+          this.terrain.addRubberLine(x + throat, g + 2, x + a.width / 2, g - a.height, 9);
+        } else if (a.shape === 'ramp') {
+          // A slope rising in the direction the shell was flying: whatever lands on it gets kicked back up.
+          const dir = src && src.vx < 0 ? -1 : 1;
+          this.terrain.addRubberLine(x - (dir * a.width) / 2, g + 2, x + (dir * a.width) / 2, g - a.height, 9);
+        } else
           for (let xx = Math.floor(x - a.width / 2); xx <= x + a.width / 2; xx++) {
             const s = this.terrain.surfaceBelow(xx, Math.max(0, g - 80));
             if (s < WORLD_H - BEDROCK) this.terrain.addRubber(xx, s, xx, s + a.height);

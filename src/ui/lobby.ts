@@ -47,6 +47,7 @@ const PRESETS: Record<string, (rng: Rng) => string[]> = {
   explosive: () => WEAPONS.filter((w) => w.category === 'explosive').map((w) => w.id),
   spread: () => WEAPONS.filter((w) => w.category === 'spread').map((w) => w.id),
   special: () => WEAPONS.filter((w) => w.category === 'special').map((w) => w.id),
+  terrain: () => WEAPONS.filter((w) => w.category === 'utility').map((w) => w.id),
   nodirt: () => WEAPONS.filter((w) => w.category !== 'utility').map((w) => w.id),
   random: (rng) => rng.shuffle(WEAPONS.map((w) => w.id)).slice(0, 15),
 };

@@ -53,7 +53,7 @@ const ripple = (depth: number, radius: number, damage: number, kids: number, col
 });
 
 /** A blob of mud that rolls to low ground and drops its dirt there. */
-const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 4 }, onImpact: [{ type: 'dirt', radius: 22 }] };
+const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 8 }, flow: true, onImpact: [{ type: 'dirt', radius: 22 }] };
 
 /** A popcorn kernel: bounces about and pops after `fuse` s, throwing out `kids` smaller kernels that pop in turn. */
 const kernel = (fuse: number, size: number, damage: number, kids: number): ProjectileDef => ({
@@ -96,7 +96,7 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'doomsday', name: 'Doomsday', category: 'explosive',
-    description: 'Devastating mushroom-cloud blast. Craters half the map.',
+    description: 'Devastating mushroom-cloud blast that leaves a giant crater.',
     projectile: { radius: 7, color: '#fff3a0', glow: '#ffef7a', trail: 'fire', onImpact: [boom(140, 90, 'nuke')] },
     ai: { value: 10 },
   },
@@ -114,13 +114,14 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'frost-bomb', name: 'Frost Bomb', category: 'explosive',
-    description: 'Shatters into a shower of ice shards.',
+    description: 'Shatters into a shower of ice shards and leaves drifts of snow that stay on the map.',
     projectile: { look: 'bomb',
       radius: 5, color: '#e4fbff', glow: '#9fe8ff', trail: 'ice',
       onImpact: [
         boom(42, 30, 'ice'),
+        { type: 'snow', radius: 30 },
         { type: 'spawn', count: 8, spreadDeg: 140, direction: 'up', speed: 260, speedJitter: 0.4, angleJitter: 6,
-          projectile: { radius: 2, color: '#d8f8ff', trail: 'ice', onImpact: [boom(14, 6, 'ice')] } },
+          projectile: { radius: 2, color: '#d8f8ff', trail: 'ice', onImpact: [boom(14, 6, 'ice'), { type: 'snow', radius: 9 }] } },
       ],
     },
     ai: { value: 5 },
@@ -192,10 +193,10 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'hailstorm', name: 'Hailstorm', category: 'spread',
-    description: 'Splits at the top of its arc into a spray of hail pellets that carry on along the same path and pepper the area around the target.',
+    description: 'Splits at the top of its arc into a spray of hail pellets that carry on along the same path and pepper the area around the target, leaving a dusting of snow.',
     projectile: { look: 'bomb',
       radius: 5, color: '#cfe8ff', trail: 'ice',
-      onApex: [{ type: 'spawn', count: 14, spreadDeg: 16, direction: 'velocity', speedJitter: 0.22, angleJitter: 3, projectile: { radius: 2.5, color: '#e7f4ff', trail: 'ice', onImpact: [boom(20, 8, 'ice')] } }],
+      onApex: [{ type: 'spawn', count: 14, spreadDeg: 16, direction: 'velocity', speedJitter: 0.22, angleJitter: 3, projectile: { radius: 2.5, color: '#e7f4ff', trail: 'ice', onImpact: [boom(20, 8, 'ice'), { type: 'snow', radius: 8 }] } }],
       consumeOnApex: true,
       onImpact: [boom(20, 8, 'ice')],
     },
@@ -550,6 +551,35 @@ export const WEAPONS: WeaponDef[] = [
     projectile: { look: 'orb', radius: 5, color: '#ffc8f4', glow: '#ff7ae6', trail: 'plasma', onImpact: [{ type: 'scramble', radius: 110 }, boom(18, 8, 'plasma')] },
     ai: { value: 3 },
   },
+  {
+    id: 'bounce-funnel', name: 'Bounce Funnel', category: 'utility',
+    description: 'Builds a V-shaped rubber funnel that stays on the map. Shots that drop into it rattle down to its throat; shots that hit the outside bounce away.',
+    projectile: { radius: 5, color: '#5ff0d6', glow: '#2fd9b8', trail: 'spark', look: 'ball', onImpact: [{ type: 'rubber', shape: 'cup', width: 150, height: 110 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'spring-ramp', name: 'Spring Ramp', category: 'utility',
+    description: 'Lays a rubber ramp that rises in the direction you fired. Anything that lands on it is flung back up into the air. Stays on the map.',
+    projectile: { radius: 5, color: '#5ff0d6', glow: '#2fd9b8', trail: 'spark', look: 'ball', onImpact: [{ type: 'rubber', shape: 'ramp', width: 130, height: 80 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'snowdrift', name: 'Snowdrift', category: 'utility',
+    description: 'Dumps a huge pile of snow. It settles and stays like dirt. Bury your enemy in white.',
+    projectile: { look: 'bomb', radius: 5, color: '#f4fbff', glow: '#bfe9ff', trail: 'ice', onImpact: [{ type: 'snow', radius: 100 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'blizzard', name: 'Blizzard', category: 'spread',
+    description: 'Splits at the top of its arc into a flurry of snowballs that fly on, sting a little and blanket the target area in snow.',
+    projectile: {
+      look: 'bomb', radius: 5, color: '#f4fbff', glow: '#bfe9ff', trail: 'ice',
+      onApex: [{ type: 'spawn', count: 16, spreadDeg: 18, direction: 'velocity', speedJitter: 0.22, angleJitter: 3, projectile: { look: 'ball', radius: 3.5, color: '#ffffff', glow: '#cfefff', trail: 'ice', onImpact: [boom(16, 6, 'ice'), { type: 'snow', radius: 20 }] } }],
+      consumeOnApex: true,
+      onImpact: [boom(16, 6, 'ice'), { type: 'snow', radius: 20 }],
+    },
+    ai: { value: 3 },
+  },
   // ── Inventions ──────────────────────────────────────────────
   {
     id: 'kettle-pop', name: 'Kettle Pop', category: 'spread',
@@ -595,7 +625,7 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'pickpocket', name: 'Pickpocket', category: 'special',
-    description: 'Barely scratches the paint, but steals up to 20 points from every tank it lands near and hands them to you.',
+    description: 'Barely scratches the paint, but steals 20 points from every tank it lands near and hands them to you, even if that leaves them below zero.',
     projectile: { look: 'orb', radius: 4, color: '#ffe680', glow: '#ffd84a', trail: 'spark', onImpact: [{ type: 'steal', radius: 50, points: 20 }, boom(14, 5, 'small')] },
     ai: { value: 4 },
   },
@@ -631,7 +661,7 @@ export const WEAPONS: WeaponDef[] = [
     description: 'Splits into two crawlers on landing, one driving each way along the ground.',
     projectile: { look: 'crawler',
       radius: 5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke',
-      onImpact: [boom(22, 12), { type: 'spawn', count: 2, spreadDeg: 150, direction: 'up', speed: 140, projectile: { radius: 4.5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 4 }, onImpact: [boom(38, 28)] } }],
+      onImpact: [boom(22, 12), { type: 'spawn', count: 2, spreadDeg: 150, direction: 'up', speed: 230, projectile: { radius: 4.5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 4 }, onImpact: [boom(38, 28)] } }],
     },
     ai: { value: 4 },
   },

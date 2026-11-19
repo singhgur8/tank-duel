@@ -6,7 +6,7 @@ sound are made for this project.
 
 - **2 players on one device** (hot-seat), or **vs CPU** with difficulty 1 to 10 (level 10 never misses when a
   trajectory exists).
-- **70 weapons**, each with its own icon, its own projectile look (shell, grenade, bomb, missile, orb, canister, drill, popcorn…) and impact behaviour.
+- **74 weapons**, each with its own icon, its own projectile look (shell, grenade, bomb, missile, orb, canister, drill, popcorn…) and impact behaviour.
   New inventions: Kettle Pop (popcorn kernels that keep popping), Singularity (a mini black hole that drags tanks in, then
   collapses), Phase Shell (ghosts through hills), Mirror Shell, Pickpocket (steals points), Switcheroo (swap places),
   Orbital Lance (beam from orbit), Echo Charge (blasts three times), Twin Crawlers, Brain Fog (scrambles the

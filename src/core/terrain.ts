@@ -12,6 +12,12 @@ export interface Rect {
   y1: number;
 }
 
+/** Packed snow: bright white with faint blue speckle, so it reads as snow wherever it ends up. */
+const snowPixel = (x: number, y: number) => {
+  const n = hash2(x, y);
+  const k = 0.95 + 0.05 * n;
+  return pack(246 * k, 250 * k, 255);
+};
 const pack = (r: number, g: number, b: number) =>
   ((255 << 24) | (clamp(b | 0, 0, 255) << 16) | (clamp(g | 0, 0, 255) << 8) | clamp(r | 0, 0, 255)) >>> 0;
 
@@ -112,6 +118,17 @@ export class Terrain {
     y = Math.floor(y);
     if (x < 0 || x >= this.w || y < 0 || y >= this.h) return false;
     return this.mask[y * this.w + x] === 2;
+  }
+
+  /** Paint a thick straight band of rubber from (x0,y0) to (x1,y1). */
+  addRubberLine(x0: number, y0: number, x1: number, y1: number, thickness: number) {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    const h = thickness / 2;
+    for (let s = 0; s <= len; s += 1.5) {
+      const x = x0 + ((x1 - x0) * s) / len,
+        y = y0 + ((y1 - y0) * s) / len;
+      this.addRubber(x - h, y - h, x + h, y + h);
+    }
   }
 
   /** Paint a filled rectangle of rubber (over air or dirt). */
@@ -221,7 +238,7 @@ export class Terrain {
 
   /** Add dirt in a circle. */
   /** `wake` lets unsupported dirt fall; domes pass false so the arch stands. */
-  fillCircle(cx: number, cy: number, r: number, wake = true): number {
+  fillCircle(cx: number, cy: number, r: number, wake = true, snow = false): number {
     const { w, h, mask } = this;
     let added = 0;
     const x0 = Math.max(0, Math.floor(cx - r));
@@ -237,7 +254,7 @@ export class Terrain {
         const i = y * w + x;
         if (!mask[i]) {
           mask[i] = 1;
-          this.color[i] = this.dirtPixel(x, y);
+          this.color[i] = snow ? snowPixel(x, y) : this.dirtPixel(x, y);
           added++;
         }
       }
@@ -250,7 +267,7 @@ export class Terrain {
   }
 
   /** Raise a smooth hill of dirt on the surface, centred at cx. */
-  addMound(cx: number, width: number, height: number) {
+  addMound(cx: number, width: number, height: number, snow = false) {
     const half = width / 2;
     let minY = this.h;
     for (let x = Math.floor(cx - half); x <= Math.ceil(cx + half); x++) {
@@ -262,7 +279,7 @@ export class Terrain {
       for (let y = top - 1; y >= Math.max(0, top - add); y--) {
         const i = y * this.w + x;
         this.mask[i] = 1;
-        this.color[i] = this.dirtPixel(x, y);
+        this.color[i] = snow ? snowPixel(x, y) : this.dirtPixel(x, y);
       }
       minY = Math.min(minY, top - add);
     }

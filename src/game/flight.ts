@@ -47,7 +47,10 @@ export function muzzle(t: TankLike, angleDeg: number) {
 }
 
 export function launchVelocity(angleDeg: number, power: number, def?: ProjectileDef) {
-  const sp = (power / 100) * MAX_SPEED * (def?.speedScale ?? 1);
+  // Speed climbs steeply near the top of the range: low and mid power lob as before, while 100 power is about
+  // 2.6x faster, so it flies almost straight with very little drop.
+  const f = power / 100;
+  const sp = f * (1 + 1.6 * f ** 4) * MAX_SPEED * (def?.speedScale ?? 1);
   return { vx: Math.cos(angleDeg * DEG) * sp, vy: -Math.sin(angleDeg * DEG) * sp };
 }
 

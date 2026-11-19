@@ -1037,6 +1037,67 @@ const DRAW: Record<string, (c: Ctx, w: WeaponDef) => void> = {
     c.fillText('?', 44, 16);
     c.fillText('?', 8, 54);
   },
+  'bounce-funnel': (c) => {
+    ground(c, 54);
+    glow(c, 32, 34, 26, '#2fd9b8', 0.5);
+    c.strokeStyle = '#5ff0d6';
+    c.lineWidth = 6;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(8, 12);
+    c.lineTo(28, 50);
+    c.moveTo(56, 12);
+    c.lineTo(36, 50);
+    c.stroke();
+    dashedArc(c, [[20, 4], [24, 22], [40, 26], [32, 46]], '#ffffff');
+  },
+  'spring-ramp': (c) => {
+    ground(c, 52);
+    c.strokeStyle = '#5ff0d6';
+    c.lineWidth = 7;
+    c.lineCap = 'round';
+    c.beginPath();
+    c.moveTo(6, 50);
+    c.lineTo(46, 28);
+    c.stroke();
+    dashedArc(c, [[10, 8], [30, 38], [56, 6]], '#ffffff');
+  },
+  snowdrift: (c) => {
+    glow(c, 32, 40, 28, '#bfe9ff', 0.6);
+    c.fillStyle = '#f4fbff';
+    c.beginPath();
+    c.moveTo(2, 56);
+    c.quadraticCurveTo(14, 22, 32, 24);
+    c.quadraticCurveTo(52, 22, 62, 56);
+    c.closePath();
+    c.fill();
+    c.fillStyle = '#cfe6f5';
+    c.beginPath();
+    c.moveTo(32, 56);
+    c.quadraticCurveTo(46, 34, 62, 56);
+    c.closePath();
+    c.fill();
+    for (const [x, y] of [[14, 12], [44, 8], [54, 18], [24, 6]] as const) {
+      c.fillStyle = '#ffffff';
+      c.beginPath();
+      c.arc(x, y, 2.2, 0, TAU);
+      c.fill();
+    }
+  },
+  blizzard: (c) => {
+    glow(c, 32, 30, 28, '#bfe9ff', 0.6);
+    c.strokeStyle = '#ffffff';
+    c.lineWidth = 2.5;
+    c.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      const a = (k * Math.PI) / 3;
+      c.beginPath();
+      c.moveTo(32 - Math.cos(a) * 14, 22 - Math.sin(a) * 14);
+      c.lineTo(32 + Math.cos(a) * 14, 22 + Math.sin(a) * 14);
+      c.stroke();
+    }
+    for (const [x, y] of [[12, 44], [26, 52], [42, 46], [54, 56], [18, 58]] as const) ball(c, x, y, 4, '#ffffff', '#a9cfe6');
+  },
   springwall: (c) => {
     ground(c, 50);
     glow(c, 32, 30, 26, '#2fd9b8', 0.5);

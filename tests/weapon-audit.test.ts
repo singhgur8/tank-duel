@@ -191,4 +191,97 @@ describe('weapon audit', () => {
       for (const k of kids) expect(k.vx, id).toBeGreaterThan(50); // still heading downrange
     }
   });
+
+  it('snowdrift piles up white snow that stays like dirt', () => {
+    const g = mk(12);
+    const x = 700;
+    const gy = g.terrain.surfaceBelow(x, 0);
+    const before = solid(g);
+    g.runActions([{ type: 'snow', radius: 100 }], x, gy, null, -1);
+    run(g, 0);
+    let n = 0;
+    while (g.terrain.settling && n++ < 2000) g.update(DT);
+    expect(solid(g) - before).toBeGreaterThan(10000);
+    const top = g.terrain.surfaceBelow(x, 0);
+    expect(top).toBeLessThan(gy - 40);
+    const c = g.terrain.color[(top + 3) * g.terrain.w + x];
+    expect(c & 255).toBeGreaterThan(200); // white, not dirt-coloured
+    expect((c >>> 16) & 255).toBeGreaterThan(200);
+  });
+
+  it('frost bomb and hailstorm leave snow behind', () => {
+    const g = mk(13);
+    const t = flatEnemy(g);
+    const before = solid(g);
+    dropOn(g, 'frost-bomb', t.x - 60, t.y - 4);
+    run(g);
+    let white = 0;
+    for (let i = 0; i < g.terrain.mask.length; i++) if (g.terrain.mask[i] === 1 && (g.terrain.color[i] & 255) > 215 && ((g.terrain.color[i] >>> 16) & 255) > 230) white++;
+    expect(white).toBeGreaterThan(800);
+    expect(solid(g)).not.toBe(before);
+  });
+
+  it('a shell dropped into a bounce funnel rattles down to the throat', () => {
+    let bounces = 0;
+    const g = mk(14, { ...NullFx, bounce() { bounces++; } });
+    const x = 800;
+    const gy = g.terrain.surfaceBelow(x, 0);
+    g.runActions([{ type: 'rubber', shape: 'cup', width: 150, height: 110 }], x, gy, null, -1);
+    g.current = 0;
+    g.wind = 0;
+    g.player.weapons = ['shell'];
+    g.player.selected = 0;
+    g.apply({ t: 'fire' });
+    const p = g.projectiles[0];
+    p.x = x - 45;
+    p.y = gy - 200;
+    p.vx = 0;
+    p.vy = 250;
+    let n = 0;
+    while (!p.dead && n++ < 10 / DT) g.update(DT);
+    expect(bounces).toBeGreaterThan(0);
+    expect(Math.abs(p.x - x)).toBeLessThan(40); // ended up near the middle
+  });
+
+  it('a spring ramp flings a shell back up', () => {
+    const g = mk(15);
+    const x = 800;
+    const gy = g.terrain.surfaceBelow(x, 0);
+    g.runActions([{ type: 'rubber', shape: 'ramp', width: 130, height: 80 }], x, gy, null, -1);
+    g.current = 0;
+    g.player.weapons = ['shell'];
+    g.player.selected = 0;
+    g.apply({ t: 'fire' });
+    const p = g.projectiles[0];
+    p.x = x;
+    p.y = gy - 200;
+    p.vx = 0;
+    p.vy = 300;
+    let n = 0;
+    while (!p.dead && p.vy > 0 && n++ < 400) g.update(DT);
+    expect(p.dead).toBe(false);
+    expect(p.vy).toBeLessThan(0);
+  });
+});
+
+describe('power curve', () => {
+  it('100 power flies almost flat across the map', () => {
+    const g = mk(16);
+    g.terrain.mask.fill(0); // open sky so nothing gets in the way
+    g.current = 0;
+    g.wind = 0;
+    g.player.weapons = ['shell'];
+    g.player.selected = 0;
+    const a = g.tanks[0];
+    const dir = a.x < 800 ? 0 : 180;
+    g.apply({ t: 'aim', angle: dir, power: 100 });
+    g.apply({ t: 'fire' });
+    const p = g.projectiles[0];
+    const y0 = p.y;
+    const x0 = p.x;
+    let n = 0;
+    while (!p.dead && Math.abs(p.x - x0) < 1000 && n++ < 2000) g.update(DT);
+    expect(Math.abs(p.x - x0)).toBeGreaterThanOrEqual(1000);
+    expect(p.y - y0).toBeLessThan(60); // under 60 px of drop over 1000 px
+  });
 });

@@ -402,9 +402,11 @@ function updateHud() {
   setText('#turn-info', g.phase === 'gameover' ? 'Game over' : `Turn ${g.turn} · ${g.player.name}`);
 
   const p = g.player;
-  const wpn = g.currentWeapon;
+  // While a shot is flying, keep showing the weapon that was fired until everything has settled.
+  const inFlight = g.phase === 'flight' && !!g.lastWeapon;
+  const wpn = inFlight ? g.lastWeapon : g.currentWeapon;
   setText('#weapon-name', wpn ? wpn.name : 'No weapons');
-  setText('#weapon-count', p.weapons.length ? `${p.selected + 1} of ${p.weapons.length}` : '');
+  setText('#weapon-count', inFlight ? 'fired' : p.weapons.length ? `${p.selected + 1} of ${p.weapons.length}` : '');
   const icon = $<HTMLImageElement>('#weapon-icon');
   const src = wpn ? weaponIcon(wpn) : '';
   if (icon.dataset.k !== (wpn?.id ?? '')) {
