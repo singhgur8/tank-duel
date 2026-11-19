@@ -79,3 +79,4 @@ with its child speed and count rather than with special cases.
 - `phase: true` flies through terrain.
 - Actions: `delay` (run actions later at the same spot), `charge` (gathering-energy visual), `steal` (take points), `swap` (trade places with the nearest tank), `column` (beam from the sky that cuts a trench).
 - Spawn direction `mirror` flips the parent's velocity left/right.
+- `rubber` (wall or coat of springy rubber), `scramble` (randomise enemies' angle and power for their next turn).

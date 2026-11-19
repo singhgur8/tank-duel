@@ -25,9 +25,7 @@ export const MOVE_SPEED = 75;
 export const MAX_CLIMB_PER_PX = 2.2; // steepest slope a tank can drive up
 
 export const ANGLE_MIN = 0;
-export const ANGLE_MAX = 180;
-export const BEAM_ANGLE_MIN = -60;
-export const BEAM_ANGLE_MAX = 240;
+export const ANGLE_MAX = 359;
 /** Most burn damage per second a tank can take from napalm, however many flames touch it. */
 export const MAX_BURN_DPS = 16;
 

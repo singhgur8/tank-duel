@@ -1,6 +1,8 @@
 import { drawLook, lookOf, pointsForward } from './projectiles';
 
 const SPRITE_SCALE = 1.7;
+/** Share of the sky (from the top of the world) that may be trimmed so the field fills a wide window. */
+const MAX_SKY_CROP = 0.22;
 import { BARREL_LEN, PIVOT_HEIGHT, TANK_SCALE, WORLD_H, WORLD_W } from '../config';
 import { DEG } from '../core/rng';
 import type { Game, Tank } from '../game/game';
@@ -40,9 +42,11 @@ export class Renderer {
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
     this.canvas.width = Math.max(1, Math.round(r.width * this.dpr));
     this.canvas.height = Math.max(1, Math.round(r.height * this.dpr));
-    this.scale = Math.min(r.width / WORLD_W, r.height / WORLD_H);
+    // The world is 16:9. A wider window (a maximized desktop window minus the controls bar) used to leave empty
+    // bands at the sides; now the field fills the width and the top of the sky is trimmed instead (at most 22%).
+    this.scale = Math.min(r.width / WORLD_W, r.height / (WORLD_H * (1 - MAX_SKY_CROP)));
     this.ox = (r.width - WORLD_W * this.scale) / 2;
-    this.oy = (r.height - WORLD_H * this.scale) / 2;
+    this.oy = r.width / r.height > WORLD_W / WORLD_H ? r.height - WORLD_H * this.scale : (r.height - WORLD_H * this.scale) / 2;
     // tall screens: sit the battlefield just above the controls, leaving the sky on top for the HUD
     if (r.height > r.width) this.oy = Math.max(this.oy, r.height - WORLD_H * this.scale - 34);
   }
@@ -356,6 +360,27 @@ export class Renderer {
     if (t.heat > 0.01) this.drawTankFire(ctx, t.heat, time, i, t.bob / TANK_SCALE);
     ctx.restore();
 
+    // dazed by a Brain Fog: little stars circling over the turret
+    if (p.dazed) {
+      ctx.save();
+      for (let k = 0; k < 4; k++) {
+        const a = time * 3 + (k * Math.PI) / 2;
+        const sx = t.x + Math.cos(a) * 16,
+          sy = t.y - 40 + Math.sin(a) * 5;
+        ctx.globalAlpha = 0.6 + 0.4 * Math.sin(a);
+        ctx.fillStyle = k % 2 ? '#ff7ae6' : '#fff2a8';
+        ctx.beginPath();
+        for (let j = 0; j < 10; j++) {
+          const rr = j % 2 ? 1.6 : 4;
+          const aa = (j / 10) * Math.PI * 2 - Math.PI / 2;
+          ctx.lineTo(sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
     // name tag + turn marker
     ctx.save();
     ctx.font = '700 14px system-ui, sans-serif';
@@ -449,12 +474,13 @@ export class Renderer {
 
   /** Markers for shells above the top of the screen: drawn below the HUD, shrinking as the shell climbs. */
   private drawOffscreen(ctx: CanvasRenderingContext2D) {
+    const top = Math.max(0, -this.oy / this.scale); // world y at the top edge of the screen
     for (const p of this.game.projectiles) {
-      if (p.y >= -4) continue;
-      const h = Math.round(-p.y);
+      if (p.y >= top - 4) continue;
+      const h = Math.round(top - p.y);
       const k = Math.max(0.55, 1 - h / 1600);
       ctx.save();
-      ctx.translate(Math.max(20, Math.min(WORLD_W - 20, p.x)), 140);
+      ctx.translate(Math.max(20, Math.min(WORLD_W - 20, p.x)), top + 140);
       ctx.scale(k * 1.6, k * 1.6);
       ctx.globalCompositeOperation = 'lighter';
       ctx.globalAlpha = 0.5;

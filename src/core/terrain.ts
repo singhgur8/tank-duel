@@ -103,7 +103,34 @@ export class Terrain {
     y = Math.floor(y);
     if (x < 0 || x >= this.w || y < 0) return false;
     if (y >= this.h) return true;
-    return this.mask[y * this.w + x] === 1;
+    return this.mask[y * this.w + x] !== 0;
+  }
+
+  /** Springy rubber (mask value 2): solid, never falls, shrugs off small blasts, and shells bounce off it. */
+  rubber(x: number, y: number): boolean {
+    x = Math.floor(x);
+    y = Math.floor(y);
+    if (x < 0 || x >= this.w || y < 0 || y >= this.h) return false;
+    return this.mask[y * this.w + x] === 2;
+  }
+
+  /** Paint a filled rectangle of rubber (over air or dirt). */
+  addRubber(x0: number, y0: number, x1: number, y1: number) {
+    x0 = clamp(Math.floor(x0), 0, this.w - 1);
+    x1 = clamp(Math.ceil(x1), 0, this.w - 1);
+    y0 = clamp(Math.floor(y0), 0, this.h - BEDROCK - 1);
+    y1 = clamp(Math.ceil(y1), 0, this.h - BEDROCK - 1);
+    for (let y = y0; y <= y1; y++)
+      for (let x = x0; x <= x1; x++) {
+        const i = y * this.w + x;
+        this.mask[i] = 2;
+        // teal rubber with soft diagonal bands and a lighter rim
+        const band = ((x + y) >> 3) & 1 ? 1 : 0.86;
+        const rim = y - y0 < 2 || x - x0 < 1 || x1 - x < 1 ? 1.25 : 1;
+        const k = band * rim;
+        this.color[i] = pack(Math.min(255, 52 * k), Math.min(255, 214 * k), Math.min(255, 190 * k));
+      }
+    this.markDirty(x0 - 1, y0 - 2, x1 + 1, y1 + 2);
   }
 
   /** First solid row in a column (h if empty). */
@@ -166,7 +193,7 @@ export class Terrain {
       const yb = Math.min(maxY - 1, Math.ceil(cy + s));
       for (let y = ya; y <= yb; y++) {
         const i = y * w + x;
-        if (mask[i]) {
+        if (mask[i] === 1 || (mask[i] === 2 && r >= 26 && (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2 < r2 * 0.2)) {
           mask[i] = 0;
           removed++;
         }
@@ -309,6 +336,10 @@ export class Terrain {
         for (let y = bottom - 1; y >= top; y--) {
           const i = y * w + x;
           if (!mask[i]) continue;
+          if (mask[i] === 2) {
+            floor = y; // rubber is anchored where it was placed
+            continue;
+          }
           const target = Math.min(y + k, floor - 1);
           if (target > y) {
             const j = target * w + x;

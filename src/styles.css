@@ -351,3 +351,5 @@ h2 { margin: 0 0 6px; }
   body.four .plate .pscore { font-size: 14px; padding: 1px 4px; }
   body.four #wind-bar { display: none; }
 }
+
+.pscore.neg { color: #ff6a6a !important; }

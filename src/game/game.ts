@@ -1,5 +1,5 @@
 import {
-  ANGLE_MAX, ANGLE_MIN, BEAM_ANGLE_MAX, BEAM_ANGLE_MIN, BEDROCK, DT, MAX_BURN_DPS, GRAVITY, MAX_CLIMB_PER_PX, MAX_WIND, MOVE_DISTANCE, MOVE_SPEED, MOVES_PER_GAME,
+  ANGLE_MAX, ANGLE_MIN, BEDROCK, DT, MAX_BURN_DPS, GRAVITY, MAX_CLIMB_PER_PX, MAX_WIND, MOVE_DISTANCE, MOVE_SPEED, MOVES_PER_GAME,
   PIVOT_HEIGHT, TANK_HALF_WIDTH, TANK_HIT_RADIUS, TURN_SETTLE_DELAY, WORLD_H, WORLD_W,
 } from '../config';
 import { Rng, clamp, DEG } from '../core/rng';
@@ -11,6 +11,9 @@ import { WEAPONS, getWeapon } from './weapons';
 import type { Action, ExplosionStyle, ProjectileDef, WeaponDef } from './types';
 
 /** Side-effects the simulation asks the presentation layer for. The game never draws or plays sound itself. */
+/** A mirrored twin flies back this many times faster sideways, so it lands well behind the shooter, not on them. */
+const MIRROR_STRETCH = 2.2;
+
 export interface Fx {
   explosion(x: number, y: number, radius: number, style: ExplosionStyle, damage: number): void;
   muzzle(x: number, y: number, angleDeg: number, power: number, weapon: WeaponDef): void;
@@ -63,6 +66,8 @@ export interface Player {
   moves: number;
   angle: number;
   power: number;
+  /** Hit by a Brain Fog: angle and power were scrambled, and it lasts until this player's next shot. */
+  dazed?: boolean;
 }
 
 export interface Tank {
@@ -112,6 +117,7 @@ export interface Projectile extends FlightState {
   bdx: number;
   bdy: number;
   dead: boolean;
+  rubberHits?: number;
 }
 
 export interface Flame {
@@ -229,7 +235,7 @@ export class Game {
     // Sub-munitions that burst from a tank they hit ignore it only very briefly: if they are born deep inside
     // its hull (a point-blank shot) they can't get out in time and hit it again. That is where the occasional
     // monster point-blank result comes from.
-    return { terrain: this.terrain, tanks: this.tanks, wind: this.wind, owner: skip, skipTime: skip === owner ? 0.12 : 0.04 };
+    return { terrain: this.terrain, tanks: this.tanks, wind: this.wind, owner: skip, skipTime: skip === owner ? 0.12 : 0.02, shooter: owner };
   }
 
   // ── Commands (the only way input changes the game; ready for networking) ──
@@ -263,13 +269,13 @@ export class Game {
 
   /** Allowed barrel angle for the current weapon (beams can point downward). */
   angleRange(): [number, number] {
-    return this.currentWeapon?.beam ? [BEAM_ANGLE_MIN, BEAM_ANGLE_MAX] : [ANGLE_MIN, ANGLE_MAX];
+    // The barrel turns all the way round: 0° is right, 90° straight up, 180° left, 270° straight down.
+    return [ANGLE_MIN, ANGLE_MAX];
   }
 
   clampAngle(a: number) {
-    const [lo, hi] = this.angleRange();
-    // whole degrees only
-    return clamp(Math.round(a), lo, hi);
+    // whole degrees, wrapping round the full circle (360° is 0°)
+    return (((Math.round(a) % 360) + 360) % 360);
   }
 
   private fire(): boolean {
@@ -279,6 +285,7 @@ export class Game {
     p.weapons.splice(p.selected, 1);
     p.selected = clamp(p.selected, 0, Math.max(0, p.weapons.length - 1));
     this.lastWeapon = w;
+    p.dazed = false;
     const fireAngle = p.angle;
     p.angle = this.clampAngle(p.angle);
     this.phase = 'flight';
@@ -456,9 +463,43 @@ export class Game {
       p.dead = true;
       return;
     }
-    if (hit.kind === 'tank') return this.impact(p, hit.x, hit.y, hit.tank);
+    if (hit.kind === 'tank') {
+      if (p.def.fuse !== undefined && p.age < p.def.fuse) {
+        // A timed grenade glances off a tank and keeps ticking.
+        const c = tankCenter(this.tanks[hit.tank]);
+        const dx = hit.x - c.x,
+          dy = hit.y - c.y;
+        const l = Math.hypot(dx, dy) || 1;
+        const vn = (p.vx * dx + p.vy * dy) / l;
+        if (vn < 0) {
+          p.vx -= 1.5 * vn * (dx / l);
+          p.vy -= 1.5 * vn * (dy / l);
+        }
+        p.x = c.x + (dx / l) * (TANK_HIT_RADIUS + 2);
+        p.y = c.y + (dy / l) * (TANK_HIT_RADIUS + 2);
+        this.fx.bounce(p.x, p.y, p.def.glow ?? p.def.color);
+        return;
+      }
+      return this.impact(p, hit.x, hit.y, hit.tank);
+    }
     // terrain
     const d = p.def;
+    if (this.terrain.rubber(hit.x, hit.y) && !d.burrow) {
+      // Rubber: everything bounces off it, losing a little speed. It doesn't use up the shot's own bounces.
+      const n = this.terrain.normalAt(hit.x, hit.y);
+      const vn = p.vx * n.nx + p.vy * n.ny;
+      if (vn < 0) {
+        p.vx -= 1.85 * vn * n.nx;
+        p.vy -= 1.85 * vn * n.ny;
+      }
+      p.x = hit.ax + n.nx;
+      p.y = hit.ay + n.ny;
+      p.rubberHits = (p.rubberHits ?? 0) + 1;
+      this.fx.bounce(p.x, p.y, '#5ff0d6');
+      // Too slow to bounce, or caught rattling between rubber walls: stick and go off.
+      if (Math.hypot(p.vx, p.vy) < 70 || p.rubberHits > 12) this.impact(p, p.x, p.y, -1);
+      return;
+    }
     if (p.resumeRoll) return this.enterRoll(p, hit.ax, hit.ay);
     if (p.bounces > 0) {
       // Split the velocity into the part along the surface (kept, minus friction) and the part into it
@@ -478,7 +519,7 @@ export class Game {
       p.y = hit.ay + n.ny;
       this.fx.bounce(p.x, p.y, d.glow ?? d.color);
       if (d.onBounce) this.runActions(d.onBounce, p.x, p.y, p, -1);
-      if (Math.hypot(p.vx, p.vy) < 60) {
+      if (Math.hypot(p.vx, p.vy) < 25) {
         if (d.roll || d.fuse !== undefined) this.enterRoll(p, p.x, p.y);
         else this.impact(p, p.x, p.y, -1);
       }
@@ -552,6 +593,10 @@ export class Game {
       let k = 1;
       while (k <= maxClimb && t.solid(nx, p.y - k)) k++;
       if (k > maxClimb) {
+        if (t.rubber(nx, p.y - 2)) {
+          p.rollV *= -0.8; // rolled into rubber: springs back
+          return;
+        }
         if (p.def.fuse !== undefined) {
           p.rollV *= -0.4; // a fused grenade bounces off the wall and keeps ticking
           return;
@@ -594,6 +639,7 @@ export class Game {
     p.age += DT;
     p.burrowLeft -= sp;
     if (p.x < 0 || p.x >= WORLD_W || p.y >= WORLD_H - BEDROCK) return this.impact(p, clamp(p.x, 0, WORLD_W - 1), Math.min(p.y, WORLD_H - BEDROCK - 1), -1);
+    if (this.terrain.rubber(p.x, p.y)) return this.impact(p, p.x - p.bdx * 4, p.y - p.bdy * 4, -1); // can't drill rubber
     if (this.terrain.carveCircle(p.x, p.y, b.radius, false) > 0) this.fx.dig(p.x, p.y);
     for (let i = 0; i < this.tanks.length; i++) {
       if (i === p.owner && p.age < 0.3) continue;
@@ -627,7 +673,7 @@ export class Game {
             : a.direction === 'down'
               ? Math.PI / 2
               : a.direction === 'mirror'
-                ? (src ? Math.atan2(src.vy, -src.vx) : -Math.PI / 2)
+                ? (src ? Math.atan2(src.vy, -src.vx * MIRROR_STRETCH) : -Math.PI / 2)
               : a.direction === 'forward'
                 ? (src && src.vx < 0 ? -Math.PI * 0.64 : -Math.PI * 0.36)
                 : src
@@ -638,7 +684,7 @@ export class Game {
           const off = a.spacing ? 0 : k * a.spreadDeg * DEG;
           const jit = a.angleJitter ? this.rng.range(-a.angleJitter, a.angleJitter) * DEG : 0;
           const ang = base + off + jit;
-          let sp = a.speed ?? pv;
+          let sp = a.speed ?? (a.direction === 'mirror' && src ? Math.hypot(src.vx * MIRROR_STRETCH, src.vy) : pv);
           if (a.speedJitter) sp *= 1 + this.rng.range(-a.speedJitter, a.speedJitter);
           const sx = clamp(x + (a.spacing ? k * a.spacing * (a.count - 1) : 0), 2, WORLD_W - 3);
           this.spawnProjectile(a.projectile, sx, y - (a.lift ?? 0), Math.cos(ang) * sp, Math.sin(ang) * sp, owner, tankHit);
@@ -713,6 +759,33 @@ export class Game {
         return this.steal(x, y, a.radius, a.points, owner);
       case 'swap':
         return this.swap(x, y, a.radius, owner);
+      case 'rubber': {
+        const g = this.terrain.surfaceBelow(x, Math.max(0, y - 30));
+        if (a.shape === 'wall') this.terrain.addRubber(x - a.width / 2, g - a.height, x + a.width / 2, g + 6);
+        else
+          for (let xx = Math.floor(x - a.width / 2); xx <= x + a.width / 2; xx++) {
+            const s = this.terrain.surfaceBelow(xx, Math.max(0, g - 80));
+            if (s < WORLD_H - BEDROCK) this.terrain.addRubber(xx, s, xx, s + a.height);
+          }
+        this.fx.bounce(x, g, '#5ff0d6');
+        this.fx.dirt(x, g, 18);
+        this.fx.shake(0.2);
+        return;
+      }
+      case 'scramble': {
+        this.tanks.forEach((t, i) => {
+          if (i === owner) return;
+          const c = tankCenter(t);
+          if (Math.hypot(c.x - x, c.y - y) > a.radius + TANK_HIT_RADIUS) return;
+          const pl = this.players[i];
+          pl.angle = this.clampAngle(this.rng.range(0, 360));
+          pl.power = Math.round(this.rng.range(15, 100));
+          pl.dazed = true;
+          this.fx.charge(c.x, c.y - 10, 40, 0.5, '#ff7ae6');
+        });
+        this.fx.explosion(x, y, 20, 'plasma', 0);
+        return;
+      }
       case 'column':
         return this.column(x, y, a.width, a.damage, a.depth, a.color, owner);
     }
@@ -726,8 +799,7 @@ export class Game {
       const c = tankCenter(t);
       if (Math.hypot(c.x - x, c.y - y) > radius + TANK_HIT_RADIUS) return;
       const v = this.players[i];
-      const lost = Math.min(v.score, points);
-      if (lost <= 0) return;
+      const lost = points; // can push them below zero
       v.score -= lost;
       got += lost;
       t.hitFlash = 1;
@@ -840,21 +912,40 @@ export class Game {
   }
 
   private explode(x: number, y: number, radius: number, damage: number, style: ExplosionStyle, owner: number, tankHit: number) {
+    // Measure cover before the crater opens, so a shelter protects against the blast that breaks it.
+    const covers = this.tanks.map((t, i) => (i === tankHit ? 1 : this.cover(x, y, tankCenter(t).x, tankCenter(t).y)));
     this.terrain.carveCircle(x, y, radius);
     this.terrain.scorch(x, y, radius * 1.35, style === 'ice' ? 0.15 : 0.5);
     let total = 0;
     this.tanks.forEach((t, i) => {
       const c = tankCenter(t);
-      const d = i === tankHit ? 0 : Math.max(0, Math.hypot(c.x - x, c.y - y) - TANK_HIT_RADIUS * 0.7);
-      if (d >= radius) return;
-      const f = 1 - d / radius;
-      const dmg = Math.max(1, Math.round(damage * Math.pow(f, 0.7)));
+      // Splash reaches well past the crater edge, so a near miss still does real damage.
+      const reach = radius * 1.5 + 10;
+      const d = i === tankHit ? 0 : Math.max(0, Math.hypot(c.x - x, c.y - y) - TANK_HIT_RADIUS * 0.8);
+      if (d >= reach) return;
+      const f = 1 - d / reach;
+      // Ground between the blast and the tank soaks up the splash: shelters really shelter.
+      const cover = covers[i];
+      if (cover <= 0) return;
+      const dmg = Math.max(1, Math.round(damage * Math.pow(f, 0.55) * cover));
       total += dmg;
       this.applyDamage(i, dmg, owner, c.x, c.y - 18);
     });
     this.knockback(x, y, radius);
     this.fx.explosion(x, y, radius, style, total);
     if (total >= 30) this.fx.hitStop(Math.min(0.35, 0.1 + total / 300));
+  }
+
+  /** Share of a blast that gets through to a point: each solid pixel on the way (rubber counts double) blocks 5%. */
+  private cover(x0: number, y0: number, x1: number, y1: number) {
+    const len = Math.hypot(x1 - x0, y1 - y0);
+    let blocked = 0;
+    for (let s = 3; s < len - TANK_HIT_RADIUS * 0.6; s += 1) {
+      const px = x0 + ((x1 - x0) * s) / len,
+        py = y0 + ((y1 - y0) * s) / len;
+      if (this.terrain.solid(px, py)) blocked += this.terrain.rubber(px, py) ? 2 : 1;
+    }
+    return Math.max(0, 1 - blocked * 0.05);
   }
 
   /**
@@ -904,10 +995,9 @@ export class Game {
     if (popup) this.tanks[tank].hitFlash = 1;
     if (tank === owner) {
       // Hurting yourself costs you the damage in points, but a score never drops below 0.
-      const p = this.players[tank];
-      const lost = Math.min(p.score, amount);
-      p.score -= lost;
-      if (popup) this.fx.damage(x, y, -lost, Game.SELF_HIT_COLOR);
+      // Hurting yourself costs the same points it would have earned; scores can go below zero.
+      this.players[tank].score -= amount;
+      if (popup) this.fx.damage(x, y, -amount, Game.SELF_HIT_COLOR);
       return;
     }
     this.players[owner].score += amount;

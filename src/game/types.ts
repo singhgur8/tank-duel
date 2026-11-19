@@ -61,6 +61,10 @@ export type Action =
   | { type: 'swap'; radius: number }
   /** Beam straight down from the sky: cuts a trench `depth` px deep and damages tanks within `width`/2 horizontally. */
   | { type: 'column'; width: number; damage: number; depth: number; color: string }
+  /** Lay springy rubber: a standing wall, or a coat over the ground surface. Shots bounce off it; small blasts can't break it. */
+  | { type: 'rubber'; shape: 'wall' | 'coat'; width: number; height: number }
+  /** Fog the minds of enemy tanks within `radius`: their angle and power are scrambled for their next turn. */
+  | { type: 'scramble'; radius: number }
   /** Extra camera shake. */
   | { type: 'shake'; amount: number };
 
@@ -125,7 +129,7 @@ export interface WeaponDef {
   icon?: string;
   /** Either a projectile or a beam. */
   projectile?: ProjectileDef;
-  /** Beams can also aim below the horizon (angle range widens to BEAM_ANGLE_MIN..BEAM_ANGLE_MAX). */
+  /** A straight beam instead of a projectile. */
   beam?: BeamDef;
   /** Several projectiles per shot: fanned by spreadDeg, optionally staggered by delay seconds. */
   volley?: { count: number; spreadDeg: number; delay?: number };

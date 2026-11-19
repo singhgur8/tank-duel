@@ -1020,6 +1020,47 @@ const DRAW: Record<string, (c: Ctx, w: WeaponDef) => void> = {
       c.stroke();
     }
   },
+  'brain-fog': (c) => {
+    glow(c, 32, 32, 30, '#ff7ae6', 0.7);
+    c.strokeStyle = '#ffd6f6';
+    c.lineWidth = 3;
+    c.lineCap = 'round';
+    c.beginPath();
+    for (let k = 0; k < 90; k++) {
+      const a = k * 0.2;
+      const r = 4 + k * 0.24;
+      c.lineTo(32 + Math.cos(a) * r, 32 + Math.sin(a) * r * 0.8);
+    }
+    c.stroke();
+    c.fillStyle = '#ffffff';
+    c.font = '800 16px system-ui, sans-serif';
+    c.fillText('?', 44, 16);
+    c.fillText('?', 8, 54);
+  },
+  springwall: (c) => {
+    ground(c, 50);
+    glow(c, 32, 30, 26, '#2fd9b8', 0.5);
+    const g = c.createLinearGradient(24, 0, 40, 0);
+    g.addColorStop(0, '#2aa893');
+    g.addColorStop(0.5, '#7ff7e2');
+    g.addColorStop(1, '#2aa893');
+    c.fillStyle = g;
+    c.fillRect(25, 8, 14, 44);
+    dashedArc(c, [[4, 40], [18, 18], [24, 22]], '#ffffff');
+    dashedArc(c, [[24, 22], [14, 30], [6, 46]], '#ffd27a');
+    shell(c, 10, 40, 12, Math.PI * 0.7);
+  },
+  'rubber-coat': (c) => {
+    ground(c, 44);
+    c.fillStyle = '#5ff0d6';
+    c.fillRect(0, 40, 64, 6);
+    glow(c, 32, 42, 22, '#2fd9b8', 0.5);
+    dashedArc(c, [[10, 8], [26, 40], [46, 10]], '#ffffff');
+    c.fillStyle = '#ffffff';
+    c.beginPath();
+    c.arc(26, 38, 3, 0, TAU);
+    c.fill();
+  },
 };
 
 function rippleIcon(c: Ctx, rings: number, color: string) {

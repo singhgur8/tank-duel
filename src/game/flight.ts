@@ -29,6 +29,8 @@ export interface FlightCtx {
   owner: number;
   /** Default 0.12 s: long enough for a shell to clear its own barrel. */
   skipTime?: number;
+  /** Who fired it: homing never picks this tank as its target. Defaults to `owner`. */
+  shooter?: number;
 }
 
 export type FlightHit =
@@ -90,7 +92,7 @@ export function nearestEnemy(ctx: FlightCtx, x: number, y: number) {
   let best = -1,
     bd = Infinity;
   ctx.tanks.forEach((t, i) => {
-    if (i === ctx.owner) return;
+    if (i === (ctx.shooter ?? ctx.owner)) return;
     const d = Math.hypot(t.x - x, t.y - y);
     if (d < bd) {
       bd = d;

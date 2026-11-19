@@ -248,7 +248,7 @@ function aimAt(e: PointerEvent) {
   const dx = w.x - pv.x,
     dy = pv.y - w.y;
   let ang = (Math.atan2(dy, dx) * 180) / Math.PI;
-  if (ang < -90) ang += 360; // game clamps to the weapon's allowed range
+  if (ang < 0) ang += 360; // full circle
   const power = clamp((Math.hypot(dx, dy) - 30) / 2.6, 5, 100);
   send({ t: 'aim', angle: Math.round(ang * 10) / 10, power: Math.round(power) });
 }
@@ -381,7 +381,8 @@ function updateHud() {
   g.players.forEach((p, i) => {
     const card = `#p${i}card`;
     setText(`${card} .pname`, p.name);
-    const sc = String(Math.round(p.score));
+    const sc = Math.round(p.score) < 0 ? `−${-Math.round(p.score)}` : String(Math.round(p.score));
+    $(`${card} .pscore`).classList.toggle('neg', Math.round(p.score) < 0);
     if (hudCache.get(`${card} .pscore`) !== sc && hudCache.has(`${card} .pscore`)) {
       const el = $(`${card} .pscore`);
       el.classList.remove('bump');
@@ -464,7 +465,7 @@ function showRoundResult(g: Game) {
   }
   $('#go-title').textContent = title;
   $('#go-title').style.color = color;
-  $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score)}</b></div>`).join('');
+  $('#go-scores').innerHTML = g.players.map((pl) => `<div><span>${pl.name}</span><b style="color:${pl.color}">${Math.round(pl.score) < 0 ? '−' + -Math.round(pl.score) : Math.round(pl.score)}</b></div>`).join('');
   $('#go-match').textContent = m && rounds > 1 ? `Rounds won: ${g.players.map((pl, i) => `${pl.name} ${m.wins[i]}`).join(' · ')}` : '';
   $('#next-btn').classList.toggle('hidden', over);
   $('#rematch-btn').classList.toggle('hidden', !over);

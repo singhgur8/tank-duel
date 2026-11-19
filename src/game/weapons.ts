@@ -27,9 +27,9 @@ const hopper = (depth: number): ProjectileDef => ({
   trail: 'plasma',
   onImpact:
     depth <= 0
-      ? [boom(38, 22, 'plasma')]
+      ? [boom(42, 30, 'plasma')]
       : [
-          boom(26, 14, 'plasma'),
+          boom(30, 20, 'plasma'),
           { type: 'spawn', count: 1, spreadDeg: 0, direction: 'forward', speed: 330, angleJitter: 4, projectile: hopper(depth - 1) },
         ],
 });
@@ -53,7 +53,7 @@ const ripple = (depth: number, radius: number, damage: number, kids: number, col
 });
 
 /** A blob of mud that rolls to low ground and drops its dirt there. */
-const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 4 }, onImpact: [{ type: 'dirt', radius: 17 }] };
+const mudBlob: ProjectileDef = { radius: 4, color: '#8b6440', trail: 'dirt', roll: { maxTime: 4 }, onImpact: [{ type: 'dirt', radius: 22 }] };
 
 /** A popcorn kernel: bounces about and pops after `fuse` s, throwing out `kids` smaller kernels that pop in turn. */
 const kernel = (fuse: number, size: number, damage: number, kids: number): ProjectileDef => ({
@@ -192,10 +192,10 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'hailstorm', name: 'Hailstorm', category: 'spread',
-    description: 'Bursts at its peak and rains pellets down below.',
+    description: 'Splits at the top of its arc into a spray of hail pellets that carry on along the same path and pepper the area around the target.',
     projectile: { look: 'bomb',
       radius: 5, color: '#cfe8ff', trail: 'ice',
-      onApex: [{ type: 'spawn', count: 14, spreadDeg: 50, direction: 'down', speed: 120, speedJitter: 0.6, angleJitter: 5, projectile: { radius: 2.5, color: '#e7f4ff', trail: 'ice', onImpact: [boom(20, 8, 'ice')] } }],
+      onApex: [{ type: 'spawn', count: 14, spreadDeg: 16, direction: 'velocity', speedJitter: 0.22, angleJitter: 3, projectile: { radius: 2.5, color: '#e7f4ff', trail: 'ice', onImpact: [boom(20, 8, 'ice')] } }],
       consumeOnApex: true,
       onImpact: [boom(20, 8, 'ice')],
     },
@@ -228,9 +228,9 @@ export const WEAPONS: WeaponDef[] = [
     projectile: { look: 'missile',
       radius: 4.5, color: '#ffffff', glow: '#ff7ad9', trail: 'spark',
       onApex: [
-        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 170, speedJitter: 0.3, projectile: { radius: 3, color: '#ff5ac8', glow: '#ff5ac8', trail: 'plasma', onImpact: [boom(22, 9, 'plasma')] } },
-        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 120, speedJitter: 0.3, projectile: { radius: 3, color: '#5ae8ff', glow: '#5ae8ff', trail: 'plasma', onImpact: [boom(22, 9, 'ice')] } },
-        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 220, speedJitter: 0.3, projectile: { radius: 3, color: '#ffd84a', glow: '#ffd84a', trail: 'spark', onImpact: [boom(22, 9, 'small')] } },
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 170, speedJitter: 0.3, projectile: { radius: 3, color: '#ff5ac8', glow: '#ff5ac8', trail: 'plasma', onImpact: [boom(26, 14, 'plasma')] } },
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 120, speedJitter: 0.3, projectile: { radius: 3, color: '#5ae8ff', glow: '#5ae8ff', trail: 'plasma', onImpact: [boom(26, 14, 'ice')] } },
+        { type: 'spawn', count: 6, spreadDeg: 300, direction: 'up', speed: 220, speedJitter: 0.3, projectile: { radius: 3, color: '#ffd84a', glow: '#ffd84a', trail: 'spark', onImpact: [boom(26, 14, 'small')] } },
         { type: 'shake', amount: 0.25 },
       ],
       consumeOnApex: true,
@@ -240,10 +240,10 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'airstrike', name: 'Airstrike', category: 'spread',
-    description: 'Marks the top of its arc, then a line of bombs drops straight down below it.',
+    description: 'Splits at the top of its arc into a line of seven bombs that fly on side by side and land in a row across the target.',
     projectile: {
       radius: 4, color: '#ffef9a', trail: 'smoke',
-      onApex: [{ type: 'spawn', count: 7, spreadDeg: 0, spacing: 42, direction: 'down', speed: 60, angleJitter: 2, projectile: { radius: 3.5, color: '#d9d9d9', trail: 'smoke', onImpact: [boom(30, 16)] } }],
+      onApex: [{ type: 'spawn', count: 7, spreadDeg: 0, spacing: 40, direction: 'velocity', angleJitter: 1, projectile: { radius: 3.5, color: '#d9d9d9', trail: 'smoke', onImpact: [boom(30, 16)] } }],
       consumeOnApex: true,
       onImpact: [boom(30, 16)],
     },
@@ -251,10 +251,10 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'acid-rain', name: 'Acid Rain', category: 'spread',
-    description: 'Bursts overhead into a cloud of corrosive drops.',
+    description: 'Splits at the top of its arc into a cloud of corrosive drops that follow the same path and splash down across the target area.',
     projectile: {
       radius: 5, color: '#c8ff7a', glow: '#7dff3a', trail: 'plasma',
-      onApex: [{ type: 'spawn', count: 20, spreadDeg: 70, direction: 'down', speed: 90, speedJitter: 0.7, angleJitter: 6, projectile: { radius: 2.2, color: '#a6ff4d', glow: '#7dff3a', trail: 'none', onImpact: [boom(14, 5, 'acid')] } }],
+      onApex: [{ type: 'spawn', count: 20, spreadDeg: 20, direction: 'velocity', speedJitter: 0.25, angleJitter: 4, projectile: { radius: 2.2, color: '#a6ff4d', glow: '#7dff3a', trail: 'none', onImpact: [boom(18, 7, 'acid')] } }],
       consumeOnApex: true,
       onImpact: [boom(14, 5, 'acid')],
     },
@@ -265,7 +265,7 @@ export const WEAPONS: WeaponDef[] = [
     description: 'Releases three small seekers at its peak that hunt the enemy.',
     projectile: { look: 'missile',
       radius: 5, color: '#ff9a9a', trail: 'smoke',
-      onApex: [{ type: 'spawn', count: 3, spreadDeg: 50, direction: 'velocity', speed: 200, projectile: { radius: 3, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 1.6, delay: 0.25 }, onImpact: [boom(26, 16)] } }],
+      onApex: [{ type: 'spawn', count: 3, spreadDeg: 50, direction: 'velocity', speed: 200, projectile: { radius: 3, color: '#ff6b6b', glow: '#ff3b3b', trail: 'fire', homing: { turnRate: 2.8, delay: 0.2 }, onImpact: [boom(30, 20)] } }],
       consumeOnApex: true,
       onImpact: [boom(26, 16)],
     },
@@ -350,12 +350,10 @@ export const WEAPONS: WeaponDef[] = [
   },
   {
     id: 'pile-driver', name: 'Pile Driver', category: 'special',
-    description: 'Stops at its peak, slams straight down through the ground and blows up underneath.',
+    description: 'Flies a normal arc, then drives a spike straight down into the ground where it lands and blows up underneath.',
     projectile: {
       radius: 5, color: '#cfcfcf', trail: 'smoke',
-      onApex: [{ type: 'spawn', count: 1, spreadDeg: 0, direction: 'down', speed: 760, projectile: { radius: 5, color: '#e8e8e8', glow: '#ffffff', trail: 'spark', burrow: { length: 60, radius: 7, speed: 420 }, onImpact: [boom(58, 48, 'big')] } }],
-      consumeOnApex: true,
-      onImpact: [boom(58, 48, 'big')],
+      onImpact: [boom(16, 8, 'small'), { type: 'spawn', count: 1, spreadDeg: 0, direction: 'down', speed: 760, projectile: { radius: 5, color: '#e8e8e8', glow: '#ffffff', trail: 'spark', burrow: { length: 60, radius: 7, speed: 420 }, onImpact: [boom(58, 48, 'big')] } }],
     },
     ai: { value: 6 },
   },
@@ -366,7 +364,7 @@ export const WEAPONS: WeaponDef[] = [
       radius: 5, color: '#e0b070', trail: 'dirt', burrow: { length: 40, radius: 7, speed: 300 },
       onImpact: [
         boom(24, 10, 'dirt'),
-        { type: 'spawn', count: 4, spreadDeg: 140, direction: 'down', speed: 300, projectile: { radius: 3, color: '#e0b070', trail: 'dirt', burrow: { length: 90, radius: 6, speed: 300 }, onImpact: [boom(32, 18, 'dirt')] } },
+        { type: 'spawn', count: 4, spreadDeg: 170, direction: 'down', speed: 300, projectile: { radius: 3, color: '#e0b070', trail: 'dirt', burrow: { length: 130, radius: 6, speed: 300 }, onImpact: [boom(34, 24, 'dirt')] } },
       ],
     },
     ai: { value: 5 },
@@ -487,21 +485,21 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'dirt-ball', name: 'Dirt Ball', category: 'utility',
     description: 'Dumps a ball of dirt. Bury your enemy.',
-    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'dirt', radius: 60 }] },
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'dirt', radius: 88 }] },
     ai: { value: 1 },
   },
   {
     id: 'earth-wall', name: 'Earth Wall', category: 'utility',
     description: 'Raises a tall hill where it lands. Instant cover.',
-    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 120, height: 150 }] },
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 170, height: 210 }] },
     ai: { value: 1 },
   },
   {
     id: 'dirt-shower', name: 'Dirt Shower', category: 'utility',
-    description: 'Bursts overhead and rains clods of dirt.',
+    description: 'Splits at the top of its arc into clods of dirt that fly on and pile up around the target.',
     projectile: {
       radius: 5, color: '#a77a4f', trail: 'dirt',
-      onApex: [{ type: 'spawn', count: 12, spreadDeg: 60, direction: 'down', speed: 140, speedJitter: 0.5, angleJitter: 6, projectile: { radius: 3, color: '#8b6440', trail: 'dirt', onImpact: [{ type: 'dirt', radius: 18 }] } }],
+      onApex: [{ type: 'spawn', count: 18, spreadDeg: 18, direction: 'velocity', speedJitter: 0.2, angleJitter: 3, projectile: { radius: 3.5, color: '#8b6440', trail: 'dirt', onImpact: [{ type: 'dirt', radius: 27 }] } }],
       consumeOnApex: true,
       onImpact: [{ type: 'dirt', radius: 18 }],
     },
@@ -516,13 +514,13 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'spire', name: 'Spire', category: 'utility',
     description: 'Raises a tall, narrow pillar of rock. Blocks low shots.',
-    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 54, height: 230 }] },
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'mound', width: 70, height: 300 }] },
     ai: { value: 1 },
   },
   {
     id: 'dome', name: 'Bunker Dome', category: 'utility',
     description: 'Builds a hollow arch of dirt over the landing spot. Shelter yourself or box in the enemy.',
-    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'dome', radius: 62, thickness: 12 }] },
+    projectile: { radius: 5, color: '#a77a4f', trail: 'dirt', onImpact: [{ type: 'dome', radius: 72, thickness: 24 }] },
     ai: { value: 1 },
   },
   {
@@ -530,9 +528,27 @@ export const WEAPONS: WeaponDef[] = [
     description: 'Bursts into blobs of mud that roll downhill and fill the low ground.',
     projectile: {
       radius: 5, color: '#8b6440', trail: 'dirt',
-      onImpact: [{ type: 'dirt', radius: 14 }, { type: 'spawn', count: 9, spreadDeg: 140, direction: 'up', speed: 190, speedJitter: 0.4, angleJitter: 6, projectile: mudBlob }],
+      onImpact: [{ type: 'dirt', radius: 24 }, { type: 'spawn', count: 14, spreadDeg: 140, direction: 'up', speed: 190, speedJitter: 0.4, angleJitter: 6, projectile: mudBlob }],
     },
     ai: { value: 1 },
+  },
+  {
+    id: 'springwall', name: 'Springwall', category: 'utility',
+    description: 'Raises a tall wall of springy rubber that stays for the rest of the game. Shots bounce straight off it and small blasts cannot break it.',
+    projectile: { radius: 5, color: '#5ff0d6', glow: '#2fd9b8', trail: 'spark', look: 'ball', onImpact: [{ type: 'rubber', shape: 'wall', width: 18, height: 150 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'rubber-coat', name: 'Rubber Coat', category: 'utility',
+    description: 'Coats a wide patch of ground in rubber that stays put. Shots landing on it bounce away instead of digging in.',
+    projectile: { radius: 5, color: '#5ff0d6', glow: '#2fd9b8', trail: 'spark', look: 'canister', onImpact: [{ type: 'rubber', shape: 'coat', width: 200, height: 8 }] },
+    ai: { value: 1 },
+  },
+  {
+    id: 'brain-fog', name: 'Brain Fog', category: 'special',
+    description: 'A pink haze that scrambles the aim of every enemy tank it lands near: their angle and power are thrown to random values, and CPU players aim badly on their next turn.',
+    projectile: { look: 'orb', radius: 5, color: '#ffc8f4', glow: '#ff7ae6', trail: 'plasma', onImpact: [{ type: 'scramble', radius: 110 }, boom(18, 8, 'plasma')] },
+    ai: { value: 3 },
   },
   // ── Inventions ──────────────────────────────────────────────
   {
@@ -564,12 +580,12 @@ export const WEAPONS: WeaponDef[] = [
   {
     id: 'phase-shell', name: 'Phase Shell', category: 'special',
     description: 'Ghosts straight through hills and walls. Goes off when it gets close to a tank, or after six seconds.',
-    projectile: { look: 'orb', radius: 4, color: '#bff9ff', glow: '#5ce1ff', trail: 'plasma', phase: true, proximity: 26, fuse: 6, onImpact: [boom(36, 34, 'plasma')] },
+    projectile: { look: 'orb', radius: 4, color: '#bff9ff', glow: '#5ce1ff', trail: 'plasma', phase: true, proximity: 40, fuse: 6, onImpact: [boom(40, 36, 'plasma')] },
     ai: { value: 4 },
   },
   {
     id: 'mirror-shell', name: 'Mirror Shell', category: 'spread',
-    description: 'At the top of its arc it splits off a twin that flies the opposite way. Covers both sides of the map.',
+    description: 'At the top of its arc it splits off a twin that races back the opposite way and lands well behind you. Covers both sides of the map.',
     projectile: {
       radius: 4, color: '#e8f4ff', glow: '#9fd0ff', trail: 'spark',
       onApex: [{ type: 'spawn', count: 1, spreadDeg: 0, direction: 'mirror', projectile: { radius: 4, color: '#e8f4ff', glow: '#9fd0ff', trail: 'spark', onImpact: [boom(32, 28)] } }],
@@ -615,7 +631,7 @@ export const WEAPONS: WeaponDef[] = [
     description: 'Splits into two crawlers on landing, one driving each way along the ground.',
     projectile: { look: 'crawler',
       radius: 5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke',
-      onImpact: [{ type: 'spawn', count: 2, spreadDeg: 150, direction: 'up', speed: 140, projectile: { radius: 4.5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 4 }, onImpact: [boom(38, 28)] } }],
+      onImpact: [boom(22, 12), { type: 'spawn', count: 2, spreadDeg: 150, direction: 'up', speed: 140, projectile: { radius: 4.5, color: '#c0c6cc', glow: '#ff5a5a', trail: 'smoke', crawl: { speed: 95, time: 4 }, onImpact: [boom(38, 28)] } }],
     },
     ai: { value: 4 },
   },

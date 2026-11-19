@@ -6,10 +6,11 @@ sound are made for this project.
 
 - **2 players on one device** (hot-seat), or **vs CPU** with difficulty 1 to 10 (level 10 never misses when a
   trajectory exists).
-- **67 weapons**, each with its own icon, its own projectile look (shell, grenade, bomb, missile, orb, canister, drill, popcorn…) and impact behaviour.
+- **70 weapons**, each with its own icon, its own projectile look (shell, grenade, bomb, missile, orb, canister, drill, popcorn…) and impact behaviour.
   New inventions: Kettle Pop (popcorn kernels that keep popping), Singularity (a mini black hole that drags tanks in, then
   collapses), Phase Shell (ghosts through hills), Mirror Shell, Pickpocket (steals points), Switcheroo (swap places),
-  Orbital Lance (beam from orbit), Echo Charge (blasts three times) and Twin Crawlers. Classics: shells, spreads, splitters, cluster bombs, hail, chain gun,
+  Orbital Lance (beam from orbit), Echo Charge (blasts three times), Twin Crawlers, Brain Fog (scrambles the
+  enemy's aim), and Springwall / Rubber Coat (rubber that stays on the map and bounces shots away). Classics: shells, spreads, splitters, cluster bombs, hail, chain gun,
   scattergun, fireworks, airstrike, acid rain, swarm seekers, chain reactions (Ripple family), rollers, bouncers,
   a crawler, a boomerang, timed and proximity fuses, tunnelers, pile driver, mole swarm, a laser and a close-range
   blast, lightning, earthquake, napalm, volcano, a teleporter, fling and pull blasts, a random grab bag, a 1-in-4
@@ -21,7 +22,7 @@ sound are made for this project.
 - **2 to 4 players**: any mix of humans and CPUs on one device, each CPU with its own level (1–10). Turns rotate, the draft goes round the table, and with 3 or 4 players the CPU goes after whoever is leading.
 - **Game lobby**: take turns picking weapons (draft) or deal them at random, 5–20 weapons each, single games or best of 3/5, wind strength, terrain shape (rolling, peaks, flat, valley), scenery and CPU level.
 - **Destructible terrain** with falling dirt, tank movement (4 moves per game), wind that changes every turn,
-  and score-based play: damage you deal is your score, and hurting yourself takes that much off your own score (never below 0).
+  and score-based play: damage you deal is your score, and hurting yourself takes that much off your own score (scores can go negative).
 - **Elastic physics**: tanks ride on springy suspension, kick back when they fire, get thrown by nearby blasts,
   bounce on hard landings, tip into craters and slide down steep slopes. Bouncy rounds keep their speed along
   the ground on glancing hits (restitution plus surface friction). All of it runs in the deterministic simulation.
@@ -95,3 +96,10 @@ src/
 
 - Adding weapons: see [docs/ADDING_WEAPONS.md](docs/ADDING_WEAPONS.md).
 - Online multiplayer plan: see [docs/NETWORKING.md](docs/NETWORKING.md).
+
+## Combat rules at a glance
+
+- The barrel turns a full 360°.
+- Splash reaches about one and a half times the crater size, so near misses still score. Ground between a blast and a tank soaks up the splash, so domes, walls and spires really shelter you.
+- Rubber (Springwall, Rubber Coat) never falls, shrugs off small blasts, and bounces shots away.
+- Scores can go negative: hurting yourself costs points, and Pickpocket can push a victim below zero.

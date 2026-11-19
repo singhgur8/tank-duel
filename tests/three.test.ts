@@ -42,7 +42,7 @@ describe('three players', () => {
     expect(g.current).toBe((c + 2) % 3);
   });
 
-  it('hurting yourself takes points off your own score, never below 0', () => {
+  it('hurting yourself takes points off your own score, and scores can go negative', () => {
     const g = three(7);
     g.players[0].score = 50;
     g.applyDamage(0, 30, 0, 0, 0);
@@ -50,9 +50,9 @@ describe('three players', () => {
     expect(g.players[1].score).toBe(0);
     expect(g.players[2].score).toBe(0);
     g.applyDamage(0, 30, 0, 0, 0);
-    expect(g.players[0].score).toBe(0);
+    expect(g.players[0].score).toBe(-10);
     g.applyDamage(1, 25, 0, 0, 0);
-    expect(g.players[0].score).toBe(25);
+    expect(g.players[0].score).toBe(15);
   });
 
   it('CPU targets the leading opponent', () => {
